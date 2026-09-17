@@ -42,11 +42,25 @@
   .subtitle {
     color: var(--muted);
     font-size: 0.9rem;
-    margin: 0 0 24px;
+    margin: 0 0 8px;
+  }
+  .profile-link {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: var(--accent);
+    text-decoration: none;
+    margin-bottom: 24px;
+  }
+  .profile-link:hover {
+    text-decoration: underline;
+  }
+  h2 {
+    font-size: 1rem;
+    margin: 0 0 12px;
   }
   ul.pages {
     list-style: none;
-    margin: 0;
+    margin: 0 0 24px;
     padding: 0;
     display: grid;
     gap: 12px;
@@ -63,6 +77,11 @@
   ul.pages li a:hover {
     border-color: var(--accent);
   }
+  ul.pages li.empty {
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 4px 2px;
+  }
   ul.pages li a .title {
     font-weight: 600;
     margin-bottom: 4px;
@@ -77,14 +96,69 @@
 <div class="layout">
   <h1>e-donkun.github.io</h1>
   <p class="subtitle">公開しているページの一覧です。</p>
-  <ul class="pages">
-    <li>
-      <a href="dncl2/">
-        <div class="title">DNCL → WebAssembly コンソール</div>
-        <div class="desc">共通テスト手順記述標準言語（DNCL）をブラウザ上のWebAssemblyで実行します。外部ネットワークへは一切アクセスしません。</div>
-      </a>
-    </li>
+  <a class="profile-link" href="https://github.com/e-donkun" target="_blank" rel="noopener noreferrer">GitHub: @e-donkun</a>
+
+  <h2>公開ページ</h2>
+  <ul class="pages" id="pages-list">
+    <li class="empty">読み込み中…</li>
   </ul>
 </div>
+
+<script>
+  function renderEmpty(list, message) {
+    list.innerHTML = '';
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = message;
+    list.appendChild(li);
+  }
+
+  async function loadPages() {
+    const list = document.getElementById('pages-list');
+    try {
+      const res = await fetch('https://api.github.com/users/e-donkun/repos?per_page=100&type=owner');
+      if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+      const repos = await res.json();
+
+      const pages = repos
+        .filter((r) => r.has_pages && !r.fork && !r.archived && r.name !== 'e-donkun.github.io')
+        .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at));
+
+      if (pages.length === 0) {
+        renderEmpty(list, '公開中のページはまだありません。');
+        return;
+      }
+
+      list.innerHTML = '';
+      for (const r of pages) {
+        const url = r.homepage && r.homepage.trim() ? r.homepage : `https://e-donkun.github.io/${r.name}/`;
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+
+        const title = document.createElement('div');
+        title.className = 'title';
+        title.textContent = r.name;
+        a.appendChild(title);
+
+        if (r.description) {
+          const desc = document.createElement('div');
+          desc.className = 'desc';
+          desc.textContent = r.description;
+          a.appendChild(desc);
+        }
+
+        li.appendChild(a);
+        list.appendChild(li);
+      }
+    } catch (e) {
+      renderEmpty(list, '一覧の取得に失敗しました。しばらくしてから再読み込みしてください。');
+    }
+  }
+
+  loadPages();
+</script>
 </body>
 </html>
