@@ -65,6 +65,7 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 .badge.async{background:var(--danger-bg);color:var(--danger-text);}
 .controls-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .controls-row label{font-size:12px;color:var(--muted);display:flex;gap:4px;align-items:center;}
+.name-input{flex:1;min-width:0;font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);}
 
 /* "stage" = the official chaser-server look (fixed cream palette, ignores light/dark theme,
    deliberately matching https://www.kyoto-shigaku.info/wp-content/uploads/chaser.gif) */
@@ -129,6 +130,7 @@ footer a{color:var(--muted);}
         </label>
         <button id="coolDownload">保存(.py)</button>
       </div>
+      <div class="controls-row"><label for="coolName" class="small">プレイヤー名</label><input type="text" id="coolName" class="name-input" placeholder="COOL" maxlength="20"></div>
       <div class="editor-host"><textarea id="coolEditor"></textarea></div>
       <div class="controls-row"><span class="badge cool">COOL</span><span class="small" id="coolAutosave"></span></div>
       <div class="console code-mono" id="coolConsole"></div>
@@ -145,6 +147,7 @@ footer a{color:var(--muted);}
         </label>
         <button id="hotDownload">保存(.py)</button>
       </div>
+      <div class="controls-row"><label for="hotName" class="small">プレイヤー名</label><input type="text" id="hotName" class="name-input" placeholder="HOT" maxlength="20"></div>
       <div class="editor-host"><textarea id="hotEditor"></textarea></div>
       <div class="controls-row"><span class="badge hot">HOT</span><span class="small" id="hotAutosave"></span></div>
       <div class="console code-mono" id="hotConsole"></div>
@@ -175,12 +178,12 @@ footer a{color:var(--muted);}
         <div class="stage-winbanner" id="winBanner"></div>
         <div class="stage-team cool">
           <div class="label">Cool</div>
-          <div class="row name-row"><span>NAME :</span><span>01</span></div>
+          <div class="row name-row"><span>NAME :</span><span id="coolNameStage">01</span></div>
           <div class="row"><span>SCORE :</span><span id="coolScoreStage">0</span></div>
         </div>
         <div class="stage-team hot">
           <div class="label">HOT</div>
-          <div class="row name-row"><span>NAME :</span><span>02</span></div>
+          <div class="row name-row"><span>NAME :</span><span id="hotNameStage">02</span></div>
           <div class="row"><span>SCORE :</span><span id="hotScoreStage">0</span></div>
         </div>
         <div class="stage-team">
@@ -1222,6 +1225,24 @@ class ChaserMatch {
   wireAutosave(coolCM, LS_KEYS.cool, $("coolAutosave"));
   wireAutosave(hotCM, LS_KEYS.hot, $("hotAutosave"));
 
+  // ---- player names ---------------------------------------------------------------------
+  const LS_NAME_KEYS = { cool: "chaser-kyoto:name:cool", hot: "chaser-kyoto:name:hot" };
+  try { $("coolName").value = localStorage.getItem(LS_NAME_KEYS.cool) || ""; } catch (e) {}
+  try { $("hotName").value = localStorage.getItem(LS_NAME_KEYS.hot) || ""; } catch (e) {}
+  function playerName(team) {
+    const el = team === 0 ? $("coolName") : $("hotName");
+    return el.value.trim() || (team === 0 ? "01" : "02");
+  }
+  function refreshStageNames() {
+    $("coolNameStage").textContent = playerName(0);
+    $("hotNameStage").textContent = playerName(1);
+  }
+  const saveCoolName = debounce(() => { try { localStorage.setItem(LS_NAME_KEYS.cool, $("coolName").value); } catch (e) {} }, 300);
+  const saveHotName = debounce(() => { try { localStorage.setItem(LS_NAME_KEYS.hot, $("hotName").value); } catch (e) {} }, 300);
+  $("coolName").addEventListener("input", () => { saveCoolName(); refreshStageNames(); });
+  $("hotName").addEventListener("input", () => { saveHotName(); refreshStageNames(); });
+  refreshStageNames();
+
   for (const [sel, cm] of [[$("coolSample"), coolCM], [$("hotSample"), hotCM]]) {
     for (const key of ["idle", "random", "greedy", "scanner"]) {
       const opt = document.createElement("option");
@@ -1583,6 +1604,7 @@ class ChaserMatch {
     if (match) match.destroy();
     clearConsoles();
     resetStageChrome();
+    refreshStageNames();
     currentMap = buildMap();
     renderBoardSkeleton(currentMap);
     $("runBtn").disabled = true;
