@@ -1229,9 +1229,15 @@ class ChaserMatch {
   const LS_NAME_KEYS = { cool: "chaser-kyoto:name:cool", hot: "chaser-kyoto:name:hot" };
   try { $("coolName").value = localStorage.getItem(LS_NAME_KEYS.cool) || ""; } catch (e) {}
   try { $("hotName").value = localStorage.getItem(LS_NAME_KEYS.hot) || ""; } catch (e) {}
+  const fallbackName = [null, null]; // random "COOL-xxxx"/"HOT-xxxx" used while the name field is blank
+  function randomHex4() { return Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0"); }
+  function resetFallbackNames() { fallbackName[0] = null; fallbackName[1] = null; }
   function playerName(team) {
     const el = team === 0 ? $("coolName") : $("hotName");
-    return el.value.trim() || (team === 0 ? "01" : "02");
+    const v = el.value.trim();
+    if (v) return v;
+    if (!fallbackName[team]) fallbackName[team] = (team === 0 ? "COOL" : "HOT") + "-" + randomHex4();
+    return fallbackName[team];
   }
   function refreshStageNames() {
     $("coolNameStage").textContent = playerName(0);
@@ -1604,6 +1610,7 @@ class ChaserMatch {
     if (match) match.destroy();
     clearConsoles();
     resetStageChrome();
+    resetFallbackNames();
     refreshStageNames();
     currentMap = buildMap();
     renderBoardSkeleton(currentMap);
