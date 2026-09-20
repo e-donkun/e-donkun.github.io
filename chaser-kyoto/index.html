@@ -1511,7 +1511,31 @@ class ChaserMatch {
     setTimeout(next, 500);
   }
 
-  // ---- sound (match start/end fanfare, from chaser-server) -----------------------------
+  // ---- sound: countdown beeps at match start, chaser-server's fanfare at match end -----
+  let audioCtx = null;
+  function playCountdown() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioCtx;
+      const beep = (time, freq, dur) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.exponentialRampToValueAtTime(0.3, time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + dur + 0.05);
+      };
+      const now = ctx.currentTime + 0.05;
+      beep(now, 440, 0.15);        // "3"
+      beep(now + 0.7, 440, 0.15);  // "2"
+      beep(now + 1.4, 440, 0.15);  // "1"
+      beep(now + 2.1, 880, 0.35);  // "GO" -- higher pitch, held longer
+    } catch (e) {}
+  }
   function playFanfare() {
     try {
       const audio = new Audio(CHASER_SOUND_URI);
@@ -1615,7 +1639,7 @@ class ChaserMatch {
     currentMap = buildMap();
     renderBoardSkeleton(currentMap);
     $("runBtn").disabled = true;
-    playFanfare();
+    playCountdown();
     await playStartAnimation(currentMap);
     if (myToken !== runToken) return; // superseded by a reset or another run while we were animating
     renderState(new ChaserEngine.GameEngine(currentMap));
