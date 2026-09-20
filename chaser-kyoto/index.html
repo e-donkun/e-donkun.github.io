@@ -6,6 +6,7 @@
 <title>CHaser Kyoto Web</title>
 <meta name="description" content="CHaser(U-16プログラミングコンテスト競技部門)をブラウザだけで書いて動かして対戦できるシミュレータ。Python + Pyodide。">
 <link rel="icon" href="data:,">
+<script src="coi-serviceworker.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
 <style>
@@ -59,6 +60,8 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;}
 .badge.cool{background:var(--cool);color:#fff;}
 .badge.hot{background:var(--hot);color:#fff;}
+.badge.sync{background:var(--ok-bg);color:var(--ok-text);}
+.badge.async{background:var(--danger-bg);color:var(--danger-text);}
 .controls-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .controls-row label{font-size:12px;color:var(--muted);display:flex;gap:4px;align-items:center;}
 .scoreboard{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;}
@@ -105,6 +108,7 @@ footer a{color:var(--muted);}
   <h1>CHaser Kyoto Web</h1>
   <span class="sub">ブラウザで書いて、動かして、対戦する</span>
   <span class="spacer"></span>
+  <span class="badge" id="modeBadge" title="">判定中…</span>
   <a class="help-link" id="openHelp">遊び方・ルール</a>
 </header>
 
@@ -235,11 +239,37 @@ footer a{color:var(--muted);}
     </table>
     <p>値の意味: <b>0</b>=何もない　<b>1</b>=相手ターゲット　<b>2</b>=ブロック　<b>3</b>=アイテム</p>
 
+    <h3>await は必要?(実行モードについて)</h3>
+    <p>画面右上のバッジで、今この端末がどちらのモードで動いているか確認できます。</p>
+    <ul>
+      <li><b>同期モード</b>: <code>SharedArrayBuffer</code> が使える場合(GitHub Pagesなど、ふつうにインターネット越しに開いた場合はこちら)。
+          <code>value = client.get_ready()</code> のように、本家の<code>CHaser.py</code>と全く同じ書き方でそのまま動きます。</li>
+      <li><b>非同期モード</b>: <code>file://</code> で直接ファイルを開いた場合など、ブラウザの制約で
+          <code>SharedArrayBuffer</code> が使えない場合はこちら。<code>await</code> の無いコードを検出すると、
+          呼び出している関数を自動的に <code>async def</code> にして <code>await</code> を補ってから実行します
+          (プログラムのコード自体は書き換えません。実行時に一時的に変換するだけです)。</li>
+    </ul>
+    <p>つまり、<b>どちらのモードでも、<code>await</code> の無い本家スタイルのコードはそのまま動くはずです。</b>
+       ただし非同期モードでの自動補完はあくまで簡易的な解析なので、複雑な書き方(ジェネレータの中で呼び出す、など)
+       では補完できずに動かないことがあります。その場合は <code>value = await client.get_ready()</code> のように、
+       自分で <code>await</code> を付けてください。<code>await</code> を付けるスタイルは<b>どちらのモードでも</b>
+       確実に動くので、迷ったら付けておくのがいちばん安全です。</p>
+
     <h3>既存のCHaserクライアントからの移植</h3>
-    <p><code>chaser-python-client</code> や <code>CHaser-Helper</code> 形式のコード(<code>client.get_ready()</code> のように
-       <code>client.</code> から始まる同名メソッドを呼ぶスタイル)は、各呼び出しの先頭に <code>await</code> を付けるだけで、
-       ほぼそのままここで動かせます。実際の通信(ソケット接続)は行わないため、接続用のコードは削除してください
-       (この画面では <code>client</code> はあらかじめ用意されています)。</p>
+    <p><code>CHaser-Helper</code> 同梱の <code>CHaser.py</code>(<code>import CHaser</code> して
+       <code>cl = CHaser.Client()</code> と書くスタイル)は、ほぼそのままここで動かせます。</p>
+    <ul>
+      <li><code>import CHaser</code> と <code>cl = CHaser.Client()</code> にそのまま対応しています(実際のソケット接続やGUI表示は行わず、
+          このシミュレータの盤面に直接つながります)。引数を渡しても無視されます。</li>
+      <li><code>get_ready()</code> / <code>walk_up()</code> などの個別メソッドに加えて、
+          文字列で指定する <code>cl.cmd("gr")</code> / <code>cl.cmd("wu")</code> 形式(本家CHaser.pyと同じ2文字コマンド)にも対応しています。</li>
+      <li><code>import CHaser</code> をせず、あらかじめ用意されている <code>client</code> という変数をそのまま使うこともできます。</li>
+      <li>非同期モードでは自動的に <code>await</code> が補われるので、基本的にはそのままで動きます。
+          うまく動かないときだけ、上の説明の通り自分で <code>await</code> を追加してみてください。</li>
+      <li><code>chaser-python-client</code>(<code>from client.ChaserClient import ChaserClient</code> のように
+          別の場所からimportするスタイル)は、importパスが異なるため現時点では非対応です。
+          メソッド名は共通なので、<code>import</code> 部分を削って <code>client</code> 変数を使う形に書き換えれば動きます。</li>
+    </ul>
 
     <h3>保存について</h3>
     <p>書いたコードは自動的にこのブラウザの localStorage に保存されます(このデバイス限定)。
@@ -685,13 +715,189 @@ while True:
 function chaserWorkerMain() {
   let reqId = 0;
   const pending = new Map();
+  let ctrlView = null; // Int32Array over a SharedArrayBuffer, only set up in sync mode
 
-  function jsCall(action, direction) {
+  // Best-effort source transform used only in fallback (non-sync) mode: rewrites plain
+  // synchronous client.xxx() calls into `await`-ed calls, promoting whichever functions
+  // touch them to `async def`, so unmodified real CHaser.py-style scripts still run
+  // without SharedArrayBuffer. Falls back to the original source untouched if anything
+  // looks unsafe (generators) or fails to compile.
+  const AUTOASYNCIFY_SRC = `
+import ast
+
+def _autoasyncify(source):
+    _BRIDGE = {
+        "get_ready", "walk_up", "walk_down", "walk_left", "walk_right",
+        "look_up", "look_down", "look_left", "look_right",
+        "search_up", "search_down", "search_left", "search_right",
+        "put_up", "put_down", "put_left", "put_right", "cmd",
+    }
+
+    def target_name(call):
+        f = call.func
+        if isinstance(f, ast.Name):
+            return f.id
+        if isinstance(f, ast.Attribute):
+            return f.attr
+        return None
+
+    def own_scope_nodes(func_node):
+        stack = list(func_node.body)
+        while stack:
+            n = stack.pop()
+            yield n
+            for child in ast.iter_child_nodes(n):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+                    continue
+                stack.append(child)
+
+    def contains_yield(func_node):
+        return any(isinstance(n, (ast.Yield, ast.YieldFrom)) for n in own_scope_nodes(func_node))
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+
+    already_awaited_ids = {
+        id(n.value) for n in ast.walk(tree)
+        if isinstance(n, ast.Await) and isinstance(n.value, ast.Call)
+    }
+    func_defs = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    unsafe = {n.name for n in func_defs if contains_yield(n)}
+    async_names = {n.name for n in ast.walk(tree) if isinstance(n, ast.AsyncFunctionDef)}
+
+    def needs_await(call):
+        if id(call) in already_awaited_ids:
+            return False
+        name = target_name(call)
+        return name is not None and (name in _BRIDGE or name in async_names)
+
+    changed = True
+    while changed:
+        changed = False
+        for fdef in func_defs:
+            if fdef.name in async_names or fdef.name in unsafe:
+                continue
+            if any(isinstance(n, ast.Call) and needs_await(n) for n in own_scope_nodes(fdef)):
+                async_names.add(fdef.name)
+                changed = True
+
+    if not async_names and not any(isinstance(n, ast.Call) and needs_await(n) for n in ast.walk(tree)):
+        return source
+
+    class Rewriter(ast.NodeTransformer):
+        def visit_FunctionDef(self, node):
+            self.generic_visit(node)
+            if node.name in async_names:
+                new_node = ast.AsyncFunctionDef(
+                    name=node.name, args=node.args, body=node.body,
+                    decorator_list=node.decorator_list, returns=node.returns,
+                    type_comment=getattr(node, "type_comment", None),
+                )
+                return ast.copy_location(new_node, node)
+            return node
+
+        def visit_Call(self, node):
+            self.generic_visit(node)
+            if needs_await(node):
+                return ast.copy_location(ast.Await(value=node), node)
+            return node
+
+    tree = Rewriter().visit(tree)
+    ast.fix_missing_locations(tree)
+    try:
+        transformed = ast.unparse(tree)
+        compile(transformed, "<bot>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    except SyntaxError:
+        return source
+    return transformed
+`;
+
+  // Async bridge: client.xxx() are `async def`s that await a Promise resolved
+  // by a later postMessage({type:"reply"}) from the main thread. Works
+  // everywhere, but requires the bot's code to use `await`.
+  function nativeCallAsync(action, direction) {
     const id = ++reqId;
     return new Promise((resolve) => {
       pending.set(id, resolve);
       postMessage({ type: "call", id: id, action: action, direction: direction || "" });
     });
+  }
+
+  // Sync bridge: client.xxx() are plain (non-async) methods that block this
+  // worker thread with Atomics.wait until the main thread writes a result
+  // into the shared buffer and wakes us -- exactly what a real blocking
+  // socket.recv() looks like from the bot's point of view. Only available
+  // when this page is cross-origin isolated (see coi-serviceworker.js).
+  function nativeCallSync(action, direction) {
+    postMessage({ type: "call", id: 0, action: action, direction: direction || "" });
+    Atomics.wait(ctrlView, 0, 0);
+    const result = new Array(9);
+    for (let i = 0; i < 9; i++) result[i] = ctrlView[1 + i];
+    Atomics.store(ctrlView, 0, 0);
+    return result;
+  }
+
+  function buildShim(syncMode) {
+    const asyncKw = syncMode ? "" : "async ";
+    const awaitKw = syncMode ? "" : "await ";
+    const methods = [
+      ["get_ready", "ready", ""],
+      ["walk_up", "walk", "up"], ["walk_down", "walk", "down"], ["walk_left", "walk", "left"], ["walk_right", "walk", "right"],
+      ["look_up", "look", "up"], ["look_down", "look", "down"], ["look_left", "look", "left"], ["look_right", "look", "right"],
+      ["search_up", "search", "up"], ["search_down", "search", "down"], ["search_left", "search", "left"], ["search_right", "search", "right"],
+      ["put_up", "put", "up"], ["put_down", "put", "down"], ["put_left", "put", "left"], ["put_right", "put", "right"],
+    ];
+    const methodSrc = methods.map(([name, action, dir]) =>
+      `    ${asyncKw}def ${name}(self): return self._conv(${awaitKw}_native_call("${action}", "${dir}"))`
+    ).join("\n");
+    const convBody = syncMode
+      ? `_AwaitableList(x.to_py() if hasattr(x, "to_py") else x)`
+      : `x.to_py() if hasattr(x, "to_py") else x`;
+
+    return `
+class _AwaitableList(list):
+    def __await__(self):
+        return _identity(self).__await__()
+
+async def _identity(x):
+    return x
+
+# str command -> (action, direction), matching the real CHaser.py's 2-letter wire protocol
+_CMD_MAP = {
+    "gr": ("ready", ""),
+    "wu": ("walk", "up"), "wd": ("walk", "down"), "wl": ("walk", "left"), "wr": ("walk", "right"),
+    "lu": ("look", "up"), "ld": ("look", "down"), "ll": ("look", "left"), "lr": ("look", "right"),
+    "su": ("search", "up"), "sd": ("search", "down"), "sl": ("search", "left"), "sr": ("search", "right"),
+    "pu": ("put", "up"), "pd": ("put", "down"), "pl": ("put", "left"), "pr": ("put", "right"),
+}
+
+class _Client:
+    def __init__(self, *args, **kwargs):
+        self.team = _team_name
+        self.count = 0
+
+    def _conv(self, x):
+        return ${convBody}
+
+${methodSrc}
+
+    ${asyncKw}def cmd(self, s="gr"):
+        self.count += 1
+        action, direction = _CMD_MAP[s]
+        return self._conv(${awaitKw}_native_call(action, direction))
+
+    def close(self):
+        pass
+
+client = _Client()
+
+import sys, types
+_chaser_module = types.ModuleType("CHaser")
+_chaser_module.Client = _Client
+sys.modules["CHaser"] = _chaser_module
+`;
   }
 
   self.onmessage = async function (ev) {
@@ -703,6 +909,9 @@ function chaserWorkerMain() {
     }
     if (msg.type !== "init") return;
 
+    const syncMode = !!msg.sab;
+    if (syncMode) ctrlView = new Int32Array(msg.sab);
+
     try {
       postMessage({ type: "status", text: "Pyodide を読み込み中…" });
       importScripts(msg.pyodideUrl + "pyodide.js");
@@ -710,41 +919,27 @@ function chaserWorkerMain() {
 
       pyodide.setStdout({ batched: (t) => postMessage({ type: "stdout", text: t }) });
       pyodide.setStderr({ batched: (t) => postMessage({ type: "stderr", text: t }) });
-      pyodide.globals.set("_js_call", jsCall);
+      pyodide.globals.set("_native_call", syncMode ? nativeCallSync : nativeCallAsync);
       pyodide.globals.set("_team_name", msg.team);
 
-      const shim = `
-class _Client:
-    def _conv(self, x):
-        return x.to_py() if hasattr(x, "to_py") else x
-    async def get_ready(self):    return self._conv(await _js_call("ready", ""))
-    async def walk_up(self):      return self._conv(await _js_call("walk", "up"))
-    async def walk_down(self):    return self._conv(await _js_call("walk", "down"))
-    async def walk_left(self):    return self._conv(await _js_call("walk", "left"))
-    async def walk_right(self):   return self._conv(await _js_call("walk", "right"))
-    async def look_up(self):      return self._conv(await _js_call("look", "up"))
-    async def look_down(self):    return self._conv(await _js_call("look", "down"))
-    async def look_left(self):    return self._conv(await _js_call("look", "left"))
-    async def look_right(self):   return self._conv(await _js_call("look", "right"))
-    async def search_up(self):    return self._conv(await _js_call("search", "up"))
-    async def search_down(self):  return self._conv(await _js_call("search", "down"))
-    async def search_left(self):  return self._conv(await _js_call("search", "left"))
-    async def search_right(self): return self._conv(await _js_call("search", "right"))
-    async def put_up(self):       return self._conv(await _js_call("put", "up"))
-    async def put_down(self):     return self._conv(await _js_call("put", "down"))
-    async def put_left(self):     return self._conv(await _js_call("put", "left"))
-    async def put_right(self):    return self._conv(await _js_call("put", "right"))
-    def close(self):
-        pass
+      const shim = buildShim(syncMode);
 
-client = _Client()
-client.team = _team_name
-`;
+      let code = msg.code;
+      if (!syncMode) {
+        // No SharedArrayBuffer here, so plain synchronous client.xxx() calls (the real
+        // CHaser.py style) can't work as-is -- best-effort auto-insert `await` (and
+        // promote whichever functions touch it to `async def`) so the same unmodified
+        // source still runs. Falls back to the untouched source if anything looks
+        // unsafe (generators, syntax it can't model) or fails to compile.
+        pyodide.runPython(AUTOASYNCIFY_SRC);
+        pyodide.globals.set("_user_code_text", code);
+        code = pyodide.runPython("_autoasyncify(_user_code_text)");
+      }
 
-      postMessage({ type: "status", text: "プログラムを実行中…" });
+      postMessage({ type: "status", text: syncMode ? "プログラムを実行中…(同期モード / awaitなしでOK)" : "プログラムを実行中…(非同期モード / 自動でawaitを補完)" });
       postMessage({ type: "ready" });
       try {
-        await pyodide.runPythonAsync(shim + "\n" + msg.code);
+        await pyodide.runPythonAsync(shim + "\n" + code);
         postMessage({ type: "finished" });
       } catch (err) {
         postMessage({ type: "crash", message: (err && err.message) ? err.message : String(err) });
@@ -756,6 +951,11 @@ client.team = _team_name
 }
 
 const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.27.5/full/";
+
+// True (plain, no-`await`-needed) synchronous bot calls need SharedArrayBuffer, which
+// browsers only grant on a cross-origin-isolated page (see coi-serviceworker.js). When
+// that isn't available (e.g. opened via file://), we fall back to the async/`await` bridge.
+const SYNC_CAPABLE = typeof SharedArrayBuffer !== "undefined" && self.crossOriginIsolated === true;
 
 function createChaserWorker() {
   const src = "(" + chaserWorkerMain.toString() + ")();";
@@ -782,6 +982,7 @@ class ChaserMatch {
     this.phase = "ready";
     this.pendingByTeam = [null, null];
     this.workers = [null, null];
+    this.syncViews = [null, null];
     this._gateTimer = null;
     this._pendingGate = null;
     this._watchdog = null;
@@ -795,7 +996,12 @@ class ChaserMatch {
     const worker = createChaserWorker();
     worker.onmessage = (ev) => this._onWorkerMessage(team, ev.data);
     worker.onerror = (ev) => this._crash(team, (ev && ev.message) || "worker error");
-    worker.postMessage({ type: "init", team: team === 0 ? "COOL" : "HOT", code, pyodideUrl: PYODIDE_URL });
+    let sab = null;
+    if (SYNC_CAPABLE) {
+      sab = new SharedArrayBuffer(4 * 10); // [0]=ready flag, [1..9]=9-int result
+      this.syncViews[team] = new Int32Array(sab);
+    }
+    worker.postMessage({ type: "init", team: team === 0 ? "COOL" : "HOT", code, pyodideUrl: PYODIDE_URL, sab });
     return worker;
   }
 
@@ -858,6 +1064,13 @@ class ChaserMatch {
   }
 
   _reply(team, id, result) {
+    const view = this.syncViews[team];
+    if (view) {
+      for (let i = 0; i < 9; i++) view[1 + i] = result[i];
+      Atomics.store(view, 0, 1);
+      Atomics.notify(view, 0);
+      return;
+    }
     const w = this.workers[team];
     if (w) w.postMessage({ type: "reply", id, result });
   }
@@ -928,6 +1141,22 @@ class ChaserMatch {
 // =====================================================================================
 (function () {
   const $ = (id) => document.getElementById(id);
+
+  // ---- execution mode indicator -------------------------------------------------------
+  {
+    const badge = $("modeBadge");
+    if (SYNC_CAPABLE) {
+      badge.className = "badge sync";
+      badge.textContent = "同期モード(awaitなしでOK)";
+      badge.title = "SharedArrayBufferが使えるため、client.get_ready() のような書き方(awaitなし)がそのまま動きます。";
+    } else {
+      badge.className = "badge async";
+      badge.textContent = "非同期モード(await不要/自動補完)";
+      badge.title = "この読み込み方(file://で開いている、または対応していないブラウザ)ではSharedArrayBufferが使えません。" +
+        "await の無いコードは自動的に await を補って実行しますが、複雑な書き方だと補完に失敗することがあるので、" +
+        "確実に動かしたい場合は自分で await を付けてください。GitHub Pagesなどでホストすると同期モードになります。";
+    }
+  }
 
   // ---- editors -----------------------------------------------------------------------
   const cmOpts = {
