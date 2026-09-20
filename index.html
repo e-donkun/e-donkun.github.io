@@ -105,6 +105,16 @@
 </div>
 
 <script>
+  // GitHub API では private リポジトリのページを拾えないため、手書きで載せる分。
+  // public + Pages 有効になったものは API 側にも出てくるので、name で重複排除する。
+  const MANUAL_PAGES = [
+    {
+      name: 'chaser-kyoto',
+      description: 'CHaser(U-16プログラミングコンテスト競技部門)をブラウザだけで書いて動かして対戦できるシミュレータ',
+      url: 'https://e-donkun.github.io/chaser-kyoto/',
+    },
+  ];
+
   function renderEmpty(list, message) {
     list.innerHTML = '';
     const li = document.createElement('li');
@@ -120,41 +130,61 @@
       if (!res.ok) throw new Error('GitHub API error: ' + res.status);
       const repos = await res.json();
 
-      const pages = repos
+      const fromApi = repos
         .filter((r) => r.has_pages && !r.fork && !r.archived && r.name !== 'e-donkun.github.io')
-        .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at));
+        .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at))
+        .map((r) => ({
+          name: r.name,
+          description: r.description || '',
+          url: r.homepage && r.homepage.trim() ? r.homepage : `https://e-donkun.github.io/${r.name}/`,
+        }));
 
-      if (pages.length === 0) {
-        renderEmpty(list, '公開中のページはまだありません。');
-        return;
-      }
-
-      list.innerHTML = '';
-      for (const r of pages) {
-        const url = r.homepage && r.homepage.trim() ? r.homepage : `https://e-donkun.github.io/${r.name}/`;
-        const li = document.createElement('li');
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-
-        const title = document.createElement('div');
-        title.className = 'title';
-        title.textContent = r.name;
-        a.appendChild(title);
-
-        if (r.description) {
-          const desc = document.createElement('div');
-          desc.className = 'desc';
-          desc.textContent = r.description;
-          a.appendChild(desc);
-        }
-
-        li.appendChild(a);
-        list.appendChild(li);
-      }
+      renderPages(list, mergePages(fromApi));
     } catch (e) {
-      renderEmpty(list, '一覧の取得に失敗しました。しばらくしてから再読み込みしてください。');
+      // API が落ちていても、手書き分だけは出す。
+      const fallback = mergePages([]);
+      if (fallback.length > 0) {
+        renderPages(list, fallback);
+      } else {
+        renderEmpty(list, '一覧の取得に失敗しました。しばらくしてから再読み込みしてください。');
+      }
+    }
+  }
+
+  // 手書き分を先頭に、API 分を後ろに。同じ name は手書き分を優先する。
+  function mergePages(fromApi) {
+    const seen = new Set(MANUAL_PAGES.map((p) => p.name));
+    return [...MANUAL_PAGES, ...fromApi.filter((p) => !seen.has(p.name))];
+  }
+
+  function renderPages(list, pages) {
+    if (pages.length === 0) {
+      renderEmpty(list, '公開中のページはまだありません。');
+      return;
+    }
+
+    list.innerHTML = '';
+    for (const p of pages) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = p.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = p.name;
+      a.appendChild(title);
+
+      if (p.description) {
+        const desc = document.createElement('div');
+        desc.className = 'desc';
+        desc.textContent = p.description;
+        a.appendChild(desc);
+      }
+
+      li.appendChild(a);
+      list.appendChild(li);
     }
   }
 

@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>CHaser Kyoto Web</title>
+<meta name="description" content="CHaser(U-16プログラミングコンテスト競技部門)をブラウザだけで書いて動かして対戦できるシミュレータ。Python + Pyodide。">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#f2f3f5; --panel:#ffffff; --text:#1c1e21; --muted:#65676b; --border:#d7d9dc;
+  --accent:#2563eb; --accent-text:#ffffff; --accent2:#dc2626;
+  --console-bg:#1e1e1e; --console-text:#d4d4d4;
+  --cool:#2563eb; --hot:#dc2626; --block:#3f3f46; --item:#e11d48; --floor:#eef0f2; --floor-alt:#e6e8eb;
+  --danger-bg:#fdecea; --danger-text:#b3261e; --ok-bg:#e7f6ec; --ok-text:#1e7a34;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#17181a; --panel:#232427; --text:#f2f3f5; --muted:#9aa0a6; --border:#3a3b3e;
+    --console-bg:#000000; --console-text:#d4d4d4;
+    --floor:#2b2c2f; --floor-alt:#232427; --danger-bg:#3a1f1d; --danger-text:#ff6b60; --ok-bg:#123320; --ok-text:#5fd587;
+  }
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:"Hiragino Sans","Yu Gothic UI","Segoe UI",system-ui,sans-serif;}
+.code-mono{font-family:"SF Mono",Menlo,Consolas,"Courier New",monospace;}
+header{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);}
+header h1{font-size:18px;margin:0;white-space:nowrap;}
+header .sub{color:var(--muted);font-size:12px;}
+header .spacer{flex:1;}
+button, select, input[type=file]::file-selector-button, .btn{
+  font:inherit;font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);
+  background:var(--panel);color:var(--text);cursor:pointer;
+}
+button.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent);}
+button.danger{background:var(--accent2);color:#fff;border-color:var(--accent2);}
+button:disabled{opacity:.5;cursor:not-allowed;}
+button:hover:not(:disabled){filter:brightness(1.08);}
+a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:none;}
+.layout{display:grid;grid-template-columns:1fr;gap:14px;max-width:1500px;margin:0 auto;padding:14px;}
+@media (min-width:1050px){ .layout{grid-template-columns: 1fr 1fr;} }
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.panel h2{font-size:14px;margin:0;color:var(--muted);font-weight:600;letter-spacing:.02em;}
+.tabbar{display:flex;gap:6px;}
+.tabbar button{flex:1;border-radius:8px 8px 0 0;border-bottom:none;}
+.tabbar button.active{background:var(--accent);color:var(--accent-text);border-color:var(--accent);}
+.tabbar button.hot.active{background:var(--hot);border-color:var(--hot);}
+.editor-toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.editor-toolbar .grow{flex:1;}
+.editor-host{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.CodeMirror{height:320px;font-size:13.5px;}
+.side{display:none;flex-direction:column;gap:8px;}
+.side.active{display:flex;}
+.console{background:var(--console-bg);color:var(--console-text);border-radius:8px;padding:8px 10px;height:110px;overflow:auto;font-size:12px;white-space:pre-wrap;}
+.console .err{color:#ff6b60;}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;}
+.badge.cool{background:var(--cool);color:#fff;}
+.badge.hot{background:var(--hot);color:#fff;}
+.controls-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.controls-row label{font-size:12px;color:var(--muted);display:flex;gap:4px;align-items:center;}
+.scoreboard{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;}
+.score-box{flex:1;text-align:center;padding:8px;border-radius:10px;}
+.score-box.cool{background:color-mix(in srgb, var(--cool) 14%, transparent);}
+.score-box.hot{background:color-mix(in srgb, var(--hot) 14%, transparent);}
+.score-box .name{font-weight:700;font-size:13px;}
+.score-box.cool .name{color:var(--cool);}
+.score-box.hot .name{color:var(--hot);}
+.score-box .num{font-size:26px;font-weight:800;}
+.score-mid{text-align:center;font-size:12px;color:var(--muted);min-width:110px;}
+.score-mid .turns{font-size:18px;font-weight:700;color:var(--text);}
+#board-wrap{overflow:auto;display:flex;justify-content:center;padding:4px;}
+#board{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+.cell{position:relative;background:var(--floor);width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:background-color .15s;}
+.cell.block{background:var(--block);}
+.cell.item::after{content:"♥";color:var(--item);font-size:12px;}
+.cell.highlight{outline:2px solid #f59e0b88;outline-offset:-2px;}
+.token{position:absolute;inset:1px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;}
+.token.cool{background:var(--cool);}
+.token.hot{background:var(--hot);}
+#log{height:150px;overflow:auto;font-size:12px;background:var(--console-bg);color:var(--console-text);border-radius:8px;padding:8px 10px;}
+#log .row{opacity:.9;}
+#log .row.win{color:#5fd587;font-weight:700;}
+#log .row.lose{color:#ff6b60;font-weight:700;}
+#resultBanner{display:none;padding:10px 14px;border-radius:10px;font-weight:700;text-align:center;}
+#resultBanner.show{display:block;}
+#resultBanner.win{background:var(--ok-bg);color:var(--ok-text);}
+#resultBanner.info{background:var(--danger-bg);color:var(--danger-text);}
+dialog{border:none;border-radius:12px;padding:0;max-width:640px;width:92vw;color:var(--text);background:var(--panel);}
+dialog::backdrop{background:rgba(0,0,0,.45);}
+.dialog-body{padding:18px 22px;max-height:80vh;overflow:auto;font-size:14px;line-height:1.7;}
+.dialog-body h3{margin-top:18px;}
+.dialog-body table{border-collapse:collapse;width:100%;margin:8px 0;}
+.dialog-body td,.dialog-body th{border:1px solid var(--border);padding:4px 8px;font-size:13px;text-align:center;}
+.dialog-actions{display:flex;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--border);}
+footer{max-width:1500px;margin:0 auto;padding:8px 20px 24px;color:var(--muted);font-size:12px;}
+footer a{color:var(--muted);}
+.small{font-size:12px;color:var(--muted);}
+</style>
+</head>
+<body>
+<header>
+  <h1>CHaser Kyoto Web</h1>
+  <span class="sub">ブラウザで書いて、動かして、対戦する</span>
+  <span class="spacer"></span>
+  <a class="help-link" id="openHelp">遊び方・ルール</a>
+</header>
+
+<main class="layout">
+  <section class="panel">
+    <div class="tabbar">
+      <button id="tabCool" class="active">COOL 側のコード</button>
+      <button id="tabHot" class="hot">HOT 側のコード</button>
+    </div>
+
+    <div id="sideCool" class="side active">
+      <div class="editor-toolbar">
+        <select id="coolSample">
+          <option value="">サンプルを読み込む…</option>
+        </select>
+        <span class="grow"></span>
+        <label class="btn" style="padding:6px 10px;">読込
+          <input type="file" id="coolUpload" accept=".py,text/x-python" style="display:none;">
+        </label>
+        <button id="coolDownload">保存(.py)</button>
+      </div>
+      <div class="editor-host"><textarea id="coolEditor"></textarea></div>
+      <div class="controls-row"><span class="badge cool">COOL</span><span class="small" id="coolAutosave"></span></div>
+      <div class="console code-mono" id="coolConsole"></div>
+    </div>
+
+    <div id="sideHot" class="side">
+      <div class="editor-toolbar">
+        <select id="hotSample">
+          <option value="">サンプルを読み込む…</option>
+        </select>
+        <span class="grow"></span>
+        <label class="btn" style="padding:6px 10px;">読込
+          <input type="file" id="hotUpload" accept=".py,text/x-python" style="display:none;">
+        </label>
+        <button id="hotDownload">保存(.py)</button>
+      </div>
+      <div class="editor-host"><textarea id="hotEditor"></textarea></div>
+      <div class="controls-row"><span class="badge hot">HOT</span><span class="small" id="hotAutosave"></span></div>
+      <div class="console code-mono" id="hotConsole"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="controls-row">
+      <select id="mapSelect">
+        <option value="random">ランダムマップ</option>
+        <option value="kyoto2025">2025年 京都大会マップ</option>
+        <option value="custom">アップロードしたマップ</option>
+      </select>
+      <button id="newRandomMap">新しいランダムマップ</button>
+      <label class="btn" style="padding:6px 10px;">マップ読込
+        <input type="file" id="mapUpload" accept=".map,.txt,text/plain" style="display:none;">
+      </label>
+      <button id="mapDownload">マップ保存</button>
+    </div>
+
+    <div class="scoreboard">
+      <div class="score-box cool"><div class="name">COOL</div><div class="num" id="coolScore">0</div></div>
+      <div class="score-mid"><div class="turns" id="turnCounter">0 / 0</div><div>ラウンド進行</div><div id="itemsLeft" class="small"></div></div>
+      <div class="score-box hot"><div class="name">HOT</div><div class="num" id="hotScore">0</div></div>
+    </div>
+
+    <div id="resultBanner"></div>
+
+    <div id="board-wrap"><div id="board"></div></div>
+
+    <div class="controls-row">
+      <button id="runBtn" class="primary">▶ 対戦開始</button>
+      <button id="pauseBtn" disabled>⏸ 一時停止</button>
+      <button id="stepBtn" disabled>⏭ 1手だけ進める</button>
+      <button id="resetBtn">■ リセット</button>
+      <label>速さ
+        <input type="range" id="speedRange" min="0" max="900" value="250" step="10">
+      </label>
+    </div>
+
+    <h2>対戦ログ</h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<footer>
+  すべてブラウザ内(お使いの端末)だけで動作します。コードやマップはサーバーに送信されません。保存はブラウザの localStorage、またはファイルへのダウンロードで行ってください。<br>
+  ルール準拠元: <a href="https://github.com/u16procon/chaser-server" target="_blank" rel="noopener">u16procon/chaser-server</a> ・
+  Python実行: <a href="https://pyodide.org/" target="_blank" rel="noopener">Pyodide</a>
+</footer>
+
+<dialog id="helpDialog">
+  <div class="dialog-body">
+    <h2>CHaser Kyoto Web の遊び方</h2>
+    <p>CHaser は、15×17マスの盤面上で2つのプログラム(COOLとHOT)が交互に1手ずつ行動し、
+       アイテムを取り合いながら相手を追いつめる対戦ゲームです。左のエディタに Python で作戦を書いて、
+       「対戦開始」で右側の盤面上で動かして確認できます。</p>
+
+    <h3>勝敗条件</h3>
+    <ul>
+      <li>相手の上にブロック(×)を置く → 即勝利</li>
+      <li>自分がすでに置かれているブロックの上に乗ってしまう → 即敗北</li>
+      <li>上下左右をすべてブロックで囲まれて動けなくなる → 敗北</li>
+      <li>既定ラウンド数(マップごとに指定、既定は100)以内に決着がつかない場合は、アイテム獲得数が多い方の勝ち(同数なら引き分け)</li>
+    </ul>
+
+    <h3>1ターンの流れ</h3>
+    <p>自分の番が来るたびに、まず <code>await client.get_ready()</code> を1回呼び、
+       その次に下の16種類の行動関数のうち<b>ちょうど1つ</b>を <code>await</code> つきで呼び出してください。
+       この順番を守らないと反則負けになります(本家のCHaserサーバーと同じ仕様です)。</p>
+    <p><b>よくある間違い:</b> <code>look</code> / <code>search</code> も1回呼ぶごとに1ターン消費する「行動」です。
+       「4方向まとめてサーチしてから動く」ことはできません(1回サーチ ⇒ そのターンは終了 ⇒
+       次のターンでまた get_ready() から)。複数方向を調べたい場合は、下の「searchで少し先まで探索する」
+       サンプルのように、数ターンかけて状態を持ちながら調べてください。</p>
+
+    <h3>行動関数</h3>
+    <table>
+      <tr><th></th><th>up</th><th>down</th><th>left</th><th>right</th><th>効果</th></tr>
+      <tr><td><b>walk</b></td><td colspan="4">walk_up() / walk_down() / walk_left() / walk_right()</td><td>1マス移動して、移動先を中心とした周囲9マスの情報を取得</td></tr>
+      <tr><td><b>look</b></td><td colspan="4">look_up() / look_down() / look_left() / look_right()</td><td>2マス先を中心とした周囲9マスを覗き見る(移動しない)</td></tr>
+      <tr><td><b>search</b></td><td colspan="4">search_up() / search_down() / search_left() / search_right()</td><td>その方向へ一直線に9マス分の情報を取得(移動しない)</td></tr>
+      <tr><td><b>put</b></td><td colspan="4">put_up() / put_down() / put_left() / put_right()</td><td>隣にブロックを置き、自分を中心とした周囲9マスの情報を取得</td></tr>
+    </table>
+
+    <h3>戻り値(周囲情報)</h3>
+    <p>すべての行動関数は、9個の整数からなるリストを返します。並び順は次の通りです(自分から見た向き):</p>
+    <table>
+      <tr><td>左上</td><td>上</td><td>右上</td></tr>
+      <tr><td>左</td><td>(中央/常に0)</td><td>右</td></tr>
+      <tr><td>左下</td><td>下</td><td>右下</td></tr>
+    </table>
+    <p>値の意味: <b>0</b>=何もない　<b>1</b>=相手ターゲット　<b>2</b>=ブロック　<b>3</b>=アイテム</p>
+
+    <h3>既存のCHaserクライアントからの移植</h3>
+    <p><code>chaser-python-client</code> や <code>CHaser-Helper</code> 形式のコード(<code>client.get_ready()</code> のように
+       <code>client.</code> から始まる同名メソッドを呼ぶスタイル)は、各呼び出しの先頭に <code>await</code> を付けるだけで、
+       ほぼそのままここで動かせます。実際の通信(ソケット接続)は行わないため、接続用のコードは削除してください
+       (この画面では <code>client</code> はあらかじめ用意されています)。</p>
+
+    <h3>保存について</h3>
+    <p>書いたコードは自動的にこのブラウザの localStorage に保存されます(このデバイス限定)。
+       別の端末で使う場合や、確実に残したい場合は「保存(.py)」でファイルにダウンロードしてください。
+       サーバー側には一切保存されません。</p>
+  </div>
+  <div class="dialog-actions"><button id="closeHelp" class="primary">閉じる</button></div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+
+<script>
+// =====================================================================================
+// CHaser game engine -- faithful reimplementation of u16procon/chaser-server's rules
+// (GameSystem.cpp / GameBoard.cpp / mainwindow.cpp). See doc/U-16Asahikawa_competition.pdf.
+// =====================================================================================
+(function (root) {
+  "use strict";
+
+  const NOTHING = 0, TARGET = 1, BLOCK = 2, ITEM = 3;
+
+  const DIRS = {
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+    right: { x: 1, y: 0 },
+    left: { x: -1, y: 0 },
+  };
+
+  function makeRng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function randInt(rng, n) { return Math.floor(rng() * n); }
+
+  function makeGrid(w, h) {
+    const g = new Array(h);
+    for (let y = 0; y < h; y++) g[y] = new Array(w).fill(NOTHING);
+    return g;
+  }
+
+  function mirrorPoint(p, w, h) {
+    const cx = Math.floor(w / 2), cy = Math.floor(h / 2);
+    return { x: cx * 2 - p.x, y: cy * 2 - p.y };
+  }
+
+  function pointsEqual(a, b) { return a.x === b.x && a.y === b.y; }
+
+  function checkBlockRole(pos, size, starts) {
+    if (pointsEqual(pos, starts[0]) || pointsEqual(pos, starts[1])) return false;
+    for (const s of starts) {
+      if (pointsEqual(pos, { x: s.x + 9, y: s.y }) || pointsEqual(pos, { x: s.x - 9, y: s.y })) return false;
+      if (pointsEqual(pos, { x: s.x, y: s.y + 9 }) || pointsEqual(pos, { x: s.x, y: s.y - 9 })) return false;
+    }
+    for (const s of starts) {
+      if ((pos.x === 0 || pos.x === size.w - 1) && pos.y === s.y && Math.abs(s.x - pos.x) <= 9) return false;
+      if ((pos.y === 0 || pos.y === size.h - 1) && pos.x === s.x && Math.abs(s.y - pos.y) <= 9) return false;
+    }
+    return true;
+  }
+
+  function generateRandomMap({ width = 15, height = 17, blockNum = 20, itemNum = 50, turn = 100, seed, name } = {}) {
+    const rng = makeRng(seed == null ? ((Math.random() * 0xffffffff) >>> 0) : seed >>> 0);
+    const size = { w: width, h: height };
+
+    let coolStart;
+    do {
+      const p = { x: randInt(rng, width), y: randInt(rng, height) };
+      if (p.x < width / 2 || (p.x === Math.floor(width / 2) && p.y < height / 2)) { coolStart = p; break; }
+    } while (true);
+    const hotStart = mirrorPoint(coolStart, width, height);
+    const starts = [coolStart, hotStart];
+
+    const grid = makeGrid(width, height);
+
+    let placed = 0, guard = 0;
+    while (placed < Math.floor(blockNum / 2) && guard < 200000) {
+      guard++;
+      const p = { x: randInt(rng, width), y: randInt(rng, height) };
+      if (checkBlockRole(p, size, starts) && grid[p.y][p.x] !== BLOCK) {
+        grid[p.y][p.x] = BLOCK;
+        const m = mirrorPoint(p, width, height);
+        grid[m.y][m.x] = BLOCK;
+        placed++;
+      }
+    }
+
+    placed = 0; guard = 0;
+    while (placed < Math.floor(itemNum / 2) && guard < 200000) {
+      guard++;
+      const p = { x: randInt(rng, width), y: randInt(rng, height) };
+      if (!pointsEqual(p, coolStart) && !pointsEqual(p, hotStart) &&
+        grid[p.y][p.x] !== ITEM && grid[p.y][p.x] !== BLOCK) {
+        grid[p.y][p.x] = ITEM;
+        const m = mirrorPoint(p, width, height);
+        grid[m.y][m.x] = ITEM;
+        placed++;
+      }
+    }
+
+    return { name: name || "[RANDOM MAP]", turn, width, height, grid, start: [coolStart, hotStart] };
+  }
+
+  function parseMapText(text) {
+    const lines = text.split(/\r\n|\n|\r/);
+    let name = "[MAP]", turn = 100, width = null, height = null;
+    const rows = [];
+    const start = [null, null];
+    for (const raw of lines) {
+      if (!raw) continue;
+      const tag = raw[0];
+      const rest = raw.slice(2);
+      if (tag === "N") name = rest;
+      else if (tag === "T") turn = parseInt(rest, 10);
+      else if (tag === "S") { const [w, h] = rest.split(",").map((v) => parseInt(v, 10)); width = w; height = h; }
+      else if (tag === "D") rows.push(rest.split(",").map((v) => parseInt(v, 10) || 0));
+      else if (tag === "C") { const [x, y] = rest.split(",").map((v) => parseInt(v, 10)); start[0] = { x, y }; }
+      else if (tag === "H") { const [x, y] = rest.split(",").map((v) => parseInt(v, 10)); start[1] = { x, y }; }
+    }
+    if (width == null) width = rows.length ? rows[0].length : 15;
+    if (height == null) height = rows.length || 17;
+    if (!start[0]) start[0] = { x: 1, y: 1 };
+    if (!start[1]) start[1] = { x: width - 2, y: height - 2 };
+    return { name, turn, width, height, grid: rows, start };
+  }
+
+  function mapToText(map) {
+    const lines = [];
+    lines.push("N:" + map.name);
+    lines.push("T:" + map.turn);
+    lines.push("S:" + map.width + "," + map.height);
+    for (const row of map.grid) lines.push("D:" + row.join(","));
+    lines.push("C:" + map.start[0].x + "," + map.start[0].y);
+    lines.push("H:" + map.start[1].x + "," + map.start[1].y);
+    return lines.join("\n") + "\n";
+  }
+
+  const TEAM_NAMES = ["COOL", "HOT"];
+
+  class GameEngine {
+    constructor(map) {
+      this.map = map;
+      this.width = map.width;
+      this.height = map.height;
+      this.grid = map.grid.map((row) => row.slice());
+      this.pos = [{ ...map.start[0] }, { ...map.start[1] }];
+      this.score = [0, 0];
+      this.turnLimit = map.turn;
+      this.round = 1;
+      this.itemsRemaining = 0;
+      for (const row of this.grid) for (const v of row) if (v === ITEM) this.itemsRemaining++;
+      this.finished = false;
+      this.result = null;
+    }
+
+    other(team) { return team === 0 ? 1 : 0; }
+    teamName(team) { return TEAM_NAMES[team]; }
+    inBounds(p) { return p.x >= 0 && p.y >= 0 && p.x < this.width && p.y < this.height; }
+
+    fieldAccess(p, selfTeam) {
+      if (!this.inBounds(p)) return BLOCK;
+      const opp = this.pos[this.other(selfTeam)];
+      if (opp.x === p.x && opp.y === p.y) return TARGET;
+      return this.grid[p.y][p.x];
+    }
+
+    around(center, selfTeam) {
+      const data = new Array(9);
+      let i = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          data[i++] = this.fieldAccess({ x: center.x + dx, y: center.y + dy }, selfTeam);
+      return data;
+    }
+
+    getReady(team) { return this.around(this.pos[team], team); }
+
+    pickItem(team, vec) {
+      const p = this.pos[team];
+      if (this.fieldAccess(p, team) === ITEM) {
+        this.grid[p.y][p.x] = NOTHING;
+        const prev = { x: p.x - vec.x, y: p.y - vec.y };
+        this.grid[prev.y][prev.x] = BLOCK;
+        this.score[team]++;
+        this.itemsRemaining--;
+      }
+    }
+
+    walk(team, dir) {
+      const vec = DIRS[dir];
+      const p = this.pos[team];
+      this.pos[team] = { x: p.x + vec.x, y: p.y + vec.y };
+      this.pickItem(team, vec);
+      return this.around(this.pos[team], team);
+    }
+
+    look(team, dir) {
+      const vec = DIRS[dir];
+      const p = this.pos[team];
+      return this.around({ x: p.x + vec.x * 2, y: p.y + vec.y * 2 }, team);
+    }
+
+    search(team, dir) {
+      const vec = DIRS[dir];
+      const p = this.pos[team];
+      const data = new Array(9);
+      for (let k = 1; k <= 9; k++) data[k - 1] = this.fieldAccess({ x: p.x + vec.x * k, y: p.y + vec.y * k }, team);
+      return data;
+    }
+
+    put(team, dir) {
+      const vec = DIRS[dir];
+      const p = this.pos[team];
+      const target = { x: p.x + vec.x, y: p.y + vec.y };
+      if (this.inBounds(target)) {
+        if (this.grid[target.y][target.x] === ITEM) this.itemsRemaining--;
+        this.grid[target.y][target.x] = BLOCK;
+      }
+      return this.around(p, team);
+    }
+
+    applyAction(team, action, dir) {
+      if (action === "walk") return this.walk(team, dir);
+      if (action === "look") return this.look(team, dir);
+      if (action === "search") return this.search(team, dir);
+      if (action === "put") return this.put(team, dir);
+      throw new Error("unknown action: " + action);
+    }
+
+    checkDeath(team) {
+      const a = this.around(this.pos[team], team);
+      if (a[4] === BLOCK) return "block";
+      if (a[1] === BLOCK && a[3] === BLOCK && a[5] === BLOCK && a[7] === BLOCK) return "surrounded";
+      return null;
+    }
+
+    checkLossAfterMove(mover) {
+      const opp = this.other(mover);
+      let reason = this.checkDeath(opp);
+      if (reason) return { loser: opp, reason };
+      reason = this.checkDeath(mover);
+      if (reason) return { loser: mover, reason };
+      return null;
+    }
+
+    scoreResult() {
+      if (this.score[0] === this.score[1]) return { winner: null, reason: "draw" };
+      return { winner: this.score[0] > this.score[1] ? 0 : 1, reason: "score" };
+    }
+  }
+
+  root.ChaserEngine = {
+    NOTHING, TARGET, BLOCK, ITEM, DIRS,
+    makeRng, generateRandomMap, parseMapText, mapToText, mirrorPoint, checkBlockRole, GameEngine,
+  };
+})(window);
+</script>
+
+<script>
+// =====================================================================================
+// Built-in maps and sample bots
+// =====================================================================================
+const KYOTO_2025_MAP_TEXT = `N:2025kyoto_1st
+T:120
+S:15,17
+D:0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+D:0,0,0,0,3,3,3,3,3,3,3,0,0,0,0
+D:3,3,0,0,0,0,0,0,0,0,0,0,3,3,3
+D:3,0,0,0,0,0,3,3,3,0,0,0,0,0,0
+D:3,0,0,3,3,3,0,0,0,3,3,3,0,0,0
+D:3,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+D:0,0,0,0,0,2,0,0,0,2,0,0,0,0,0
+D:0,0,0,3,0,0,0,0,0,0,0,3,0,0,0
+D:3,3,3,3,0,0,0,3,0,0,0,3,3,3,3
+D:0,0,0,3,0,0,0,0,0,0,0,3,0,0,0
+D:0,0,0,0,0,2,0,0,0,2,0,0,0,0,0
+D:0,0,0,0,0,0,0,0,0,0,0,0,0,0,3
+D:0,0,0,3,3,3,0,0,0,3,3,3,0,0,3
+D:0,0,0,0,0,0,3,3,3,0,0,0,0,0,3
+D:3,3,3,0,0,0,0,0,0,0,0,0,0,3,3
+D:0,0,0,0,3,3,3,3,3,3,3,0,0,0,0
+D:0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+C:1,1
+H:13,15
+`;
+
+const STARTER_TEMPLATE = `# CHaser Kyoto - あなたのプログラムをここに書いてください
+#
+# ルール概要:
+#   await client.get_ready()                        そのターンの自分の周囲9マスを取得(行動の前に必ず1回)
+#   await client.walk_up()/down()/left()/right()     1マス移動して、移動先を中心とした周囲9マスを取得
+#   await client.look_up()/down()/left()/right()     2マス先を中心とした周囲9マスを覗き見る(移動しない)
+#   await client.search_up()/down()/left()/right()   その方向へ直線9マス分の情報を取得(移動しない)
+#   await client.put_up()/down()/left()/right()      隣にブロックを置く(相手に置ければ勝ち!)
+#
+# 戻り値は9個の整数のリスト。並び順(自分から見て):
+#   [左上, 上, 右上, 左, (中央,常に0), 右, 左下, 下, 右下]
+# 値の意味: 0=何もない  1=相手  2=ブロック  3=アイテム
+#
+# 1ターンにつき、必ず get_ready() を1回 -> 行動を1回、の順で呼び出してください。
+
+while True:
+    info = await client.get_ready()
+    # ここに作戦を書いてみましょう。とりあえず右に歩いてみる例:
+    await client.walk_right()
+`;
+
+const SAMPLE_BOTS = {
+  idle: { label: "サンプル: 自動くん(その場でsearchのみ)", code:
+`# 本家CHaserサーバーのデバッグ用「自動くん」に相当。危険はないが何もしない。
+while True:
+    await client.get_ready()
+    await client.search_up()
+` },
+  random: { label: "サンプル: ランダム歩行", code:
+`import random
+
+while True:
+    await client.get_ready()
+    d = random.choice(["up", "down", "left", "right"])
+    if d == "up":
+        await client.walk_up()
+    elif d == "down":
+        await client.walk_down()
+    elif d == "left":
+        await client.walk_left()
+    else:
+        await client.walk_right()
+` },
+  greedy: { label: "サンプル: 隣のアイテムを追いかける", code:
+`import random
+
+# 注意: get_ready() は「行動の前に1回」、walk/look/search/put は「1ターンに1回」しか
+# 呼べません(このサンプルのように、都度 get_ready() → 行動を1回、を繰り返してください)。
+# search や look も呼べば1ターン消費するので、隣接マスの情報は get_ready() の戻り値を
+# そのまま使うのがいちばん手軽です。
+
+ALL_DIRS = ["up", "down", "left", "right"]
+DIR_INDEX = {"up": 1, "left": 3, "right": 5, "down": 7}  # get_ready()の戻り値での隣接マスの位置
+
+async def walk(d):
+    if d == "up": return await client.walk_up()
+    if d == "down": return await client.walk_down()
+    if d == "left": return await client.walk_left()
+    return await client.walk_right()
+
+facing = random.choice(ALL_DIRS)
+
+while True:
+    info = await client.get_ready()
+
+    # 隣接マスにアイテムが見えていれば、最優先でその方向へ進む
+    next_dir = facing
+    for d, idx in DIR_INDEX.items():
+        if info[idx] == 3:
+            next_dir = d
+            break
+    else:
+        # 隣にアイテムが無ければ、たまに向きを変えてランダムに歩き回る
+        if random.random() < 0.2:
+            next_dir = random.choice(ALL_DIRS)
+
+    facing = next_dir
+    await walk(facing)
+` },
+  scanner: { label: "サンプル: searchで少し先まで探索する(応用)", code:
+`import random
+
+# search/look は1回呼ぶごとに1ターン消費するため、「4方向まとめてサーチしてから動く」
+# ことはできません。このサンプルは、数ターンかけて1方向ずつサーチし、アイテムを
+# 見つけたらその方向へ複数ターンかけて歩いて向かう、という状態遷移で実装しています。
+# (歩いている途中で相手にブロックを置かれる可能性があるので、1歩ごとに
+#  get_ready() の隣接マス情報でブロックが無いか確認してから進みます)
+
+ALL_DIRS = ["up", "down", "left", "right"]
+DIR_INDEX = {"up": 1, "left": 3, "right": 5, "down": 7}
+
+async def walk(d):
+    if d == "up": return await client.walk_up()
+    if d == "down": return await client.walk_down()
+    if d == "left": return await client.walk_left()
+    return await client.walk_right()
+
+async def search(d):
+    if d == "up": return await client.search_up()
+    if d == "down": return await client.search_down()
+    if d == "left": return await client.search_left()
+    return await client.search_right()
+
+scan_order = list(ALL_DIRS)
+random.shuffle(scan_order)
+scan_at = 0
+move_dir = random.choice(ALL_DIRS)
+remaining_steps = 0
+
+while True:
+    info = await client.get_ready()
+
+    if remaining_steps > 0 and info[DIR_INDEX[move_dir]] != 2:
+        kind, d = "walk", move_dir
+    else:
+        remaining_steps = 0
+        found = None
+        for d2, idx in DIR_INDEX.items():
+            if info[idx] == 3:
+                found = d2
+                break
+        if found is not None:
+            move_dir = found
+            kind, d = "walk", found
+        else:
+            d = scan_order[scan_at]
+            scan_at = (scan_at + 1) % len(scan_order)
+            kind = "search"
+
+    if kind == "walk":
+        await walk(d)
+        if remaining_steps > 0:
+            remaining_steps -= 1
+    else:
+        line = await search(d)
+        if 3 in line:
+            found_at = line.index(3)
+            if 2 not in line[:found_at]:  # 手前にブロックが無いか確認
+                move_dir = d
+                remaining_steps = found_at + 1
+` },
+};
+</script>
+
+<script>
+// =====================================================================================
+// Pyodide worker (built from a plain function via Function.prototype.toString so that
+// the whole thing stays inline in this single HTML file -- see createWorker() below).
+// =====================================================================================
+function chaserWorkerMain() {
+  let reqId = 0;
+  const pending = new Map();
+
+  function jsCall(action, direction) {
+    const id = ++reqId;
+    return new Promise((resolve) => {
+      pending.set(id, resolve);
+      postMessage({ type: "call", id: id, action: action, direction: direction || "" });
+    });
+  }
+
+  self.onmessage = async function (ev) {
+    const msg = ev.data;
+    if (msg.type === "reply") {
+      const resolve = pending.get(msg.id);
+      if (resolve) { pending.delete(msg.id); resolve(msg.result); }
+      return;
+    }
+    if (msg.type !== "init") return;
+
+    try {
+      postMessage({ type: "status", text: "Pyodide を読み込み中…" });
+      importScripts(msg.pyodideUrl + "pyodide.js");
+      const pyodide = await loadPyodide({ indexURL: msg.pyodideUrl });
+
+      pyodide.setStdout({ batched: (t) => postMessage({ type: "stdout", text: t }) });
+      pyodide.setStderr({ batched: (t) => postMessage({ type: "stderr", text: t }) });
+      pyodide.globals.set("_js_call", jsCall);
+      pyodide.globals.set("_team_name", msg.team);
+
+      const shim = `
+class _Client:
+    def _conv(self, x):
+        return x.to_py() if hasattr(x, "to_py") else x
+    async def get_ready(self):    return self._conv(await _js_call("ready", ""))
+    async def walk_up(self):      return self._conv(await _js_call("walk", "up"))
+    async def walk_down(self):    return self._conv(await _js_call("walk", "down"))
+    async def walk_left(self):    return self._conv(await _js_call("walk", "left"))
+    async def walk_right(self):   return self._conv(await _js_call("walk", "right"))
+    async def look_up(self):      return self._conv(await _js_call("look", "up"))
+    async def look_down(self):    return self._conv(await _js_call("look", "down"))
+    async def look_left(self):    return self._conv(await _js_call("look", "left"))
+    async def look_right(self):   return self._conv(await _js_call("look", "right"))
+    async def search_up(self):    return self._conv(await _js_call("search", "up"))
+    async def search_down(self):  return self._conv(await _js_call("search", "down"))
+    async def search_left(self):  return self._conv(await _js_call("search", "left"))
+    async def search_right(self): return self._conv(await _js_call("search", "right"))
+    async def put_up(self):       return self._conv(await _js_call("put", "up"))
+    async def put_down(self):     return self._conv(await _js_call("put", "down"))
+    async def put_left(self):     return self._conv(await _js_call("put", "left"))
+    async def put_right(self):    return self._conv(await _js_call("put", "right"))
+    def close(self):
+        pass
+
+client = _Client()
+client.team = _team_name
+`;
+
+      postMessage({ type: "status", text: "プログラムを実行中…" });
+      postMessage({ type: "ready" });
+      try {
+        await pyodide.runPythonAsync(shim + "\n" + msg.code);
+        postMessage({ type: "finished" });
+      } catch (err) {
+        postMessage({ type: "crash", message: (err && err.message) ? err.message : String(err) });
+      }
+    } catch (err) {
+      postMessage({ type: "crash", message: "Pyodideの初期化に失敗しました: " + ((err && err.message) ? err.message : String(err)) });
+    }
+  };
+}
+
+const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.27.5/full/";
+
+function createChaserWorker() {
+  const src = "(" + chaserWorkerMain.toString() + ")();";
+  const blob = new Blob([src], { type: "application/javascript" });
+  return new Worker(URL.createObjectURL(blob));
+}
+</script>
+
+<script>
+// =====================================================================================
+// Match referee: authoritative turn scheduler sitting between the two workers and the
+// GameEngine. Enforces get_ready-then-one-action ordering, paces turns for the UI, and
+// detects wins/losses/timeouts/crashes.
+// =====================================================================================
+class ChaserMatch {
+  constructor({ map, coolCode, hotCode, speedMs, timeoutMs, onEvent }) {
+    this.engine = new ChaserEngine.GameEngine(map);
+    this.speedMs = speedMs == null ? 250 : speedMs;
+    this.timeoutMs = timeoutMs || 10000;
+    this.onEvent = onEvent || function () {};
+    this.finished = false;
+    this.paused = false;
+    this.current = 0;
+    this.phase = "ready";
+    this.pendingByTeam = [null, null];
+    this.workers = [null, null];
+    this._gateTimer = null;
+    this._pendingGate = null;
+    this._watchdog = null;
+
+    this.workers[0] = this._spawn(0, coolCode);
+    this.workers[1] = this._spawn(1, hotCode);
+    this._armWatchdog();
+  }
+
+  _spawn(team, code) {
+    const worker = createChaserWorker();
+    worker.onmessage = (ev) => this._onWorkerMessage(team, ev.data);
+    worker.onerror = (ev) => this._crash(team, (ev && ev.message) || "worker error");
+    worker.postMessage({ type: "init", team: team === 0 ? "COOL" : "HOT", code, pyodideUrl: PYODIDE_URL });
+    return worker;
+  }
+
+  _onWorkerMessage(team, msg) {
+    if (this.finished) return;
+    if (msg.type === "status") this.onEvent({ type: "status", team, text: msg.text });
+    else if (msg.type === "stdout") this.onEvent({ type: "stdout", team, text: msg.text });
+    else if (msg.type === "stderr") this.onEvent({ type: "stderr", team, text: msg.text });
+    else if (msg.type === "crash") this._crash(team, msg.message);
+    else if (msg.type === "finished") this._endGame(this.engine.other(team), "program-ended");
+    else if (msg.type === "call") this._onCall(team, msg);
+  }
+
+  _onCall(team, msg) {
+    if (this.finished) return;
+    if (team !== this.current) { this.pendingByTeam[team] = msg; return; }
+
+    const expected = this.phase;
+    const gotReady = msg.action === "ready";
+    if (expected === "ready" && !gotReady) return this._protocolViolation(team, "get_ready() を呼ばずに行動しました");
+    if (expected === "action" && gotReady) return this._protocolViolation(team, "1ターンに2回 get_ready() を呼びました");
+
+    this._clearWatchdog();
+
+    let result;
+    try {
+      result = gotReady ? this.engine.getReady(team) : this.engine.applyAction(team, msg.action, msg.direction);
+    } catch (e) {
+      return this._protocolViolation(team, "不正な行動です: " + e.message);
+    }
+
+    let lossCheck = null, roundEndCheck = null;
+    if (!gotReady) {
+      lossCheck = this.engine.checkLossAfterMove(team);
+      if (!lossCheck && team === 1) {
+        const willEnd = this.engine.round + 1 > this.engine.turnLimit;
+        if (willEnd) roundEndCheck = this.engine.scoreResult();
+      }
+    }
+
+    this._gate(() => {
+      this._reply(team, msg.id, result);
+      this.onEvent({ type: "action", team, action: msg.action, direction: msg.direction, phase: expected, engine: this.engine });
+
+      if (lossCheck) { this._endGame(this.engine.other(lossCheck.loser), lossCheck.reason); return; }
+      if (roundEndCheck) { this._endGame(roundEndCheck.winner, roundEndCheck.reason); return; }
+
+      if (gotReady) {
+        this.phase = "action";
+      } else {
+        if (team === 1) this.engine.round++;
+        this.current = this.engine.other(team);
+        this.phase = "ready";
+      }
+
+      const queued = this.pendingByTeam[this.current];
+      if (queued) { this.pendingByTeam[this.current] = null; this._onCall(this.current, queued); return; }
+      this._armWatchdog();
+    });
+  }
+
+  _reply(team, id, result) {
+    const w = this.workers[team];
+    if (w) w.postMessage({ type: "reply", id, result });
+  }
+
+  _gate(fn) {
+    this._pendingGate = fn;
+    if (!this.paused) this._armGateTimer();
+  }
+  _armGateTimer() {
+    clearTimeout(this._gateTimer);
+    this._gateTimer = setTimeout(() => {
+      const fn = this._pendingGate;
+      this._pendingGate = null;
+      if (fn) fn();
+    }, this.speedMs);
+  }
+  pause() { if (this.paused) return; this.paused = true; clearTimeout(this._gateTimer); }
+  resume() { if (!this.paused) return; this.paused = false; if (this._pendingGate) this._armGateTimer(); }
+  step() {
+    if (!this._pendingGate) return;
+    clearTimeout(this._gateTimer);
+    const fn = this._pendingGate;
+    this._pendingGate = null;
+    fn();
+  }
+  setSpeed(ms) { this.speedMs = ms; }
+
+  _armWatchdog() {
+    this._clearWatchdog();
+    const team = this.current;
+    this._watchdog = setTimeout(() => {
+      this._endGame(this.engine.other(team), "timeout");
+    }, this.timeoutMs);
+  }
+  _clearWatchdog() { if (this._watchdog) { clearTimeout(this._watchdog); this._watchdog = null; } }
+
+  _protocolViolation(team, text) {
+    this.onEvent({ type: "log", text: `[反則] ${this.engine.teamName(team)}: ${text}` });
+    this._endGame(this.engine.other(team), "protocol");
+  }
+  _crash(team, message) {
+    if (this.finished) return;
+    this.onEvent({ type: "stderr", team, text: message });
+    this._endGame(this.engine.other(team), "crash");
+  }
+
+  _endGame(winner, reason) {
+    if (this.finished) return;
+    this.finished = true;
+    this._clearWatchdog();
+    clearTimeout(this._gateTimer);
+    for (const w of this.workers) if (w) w.terminate();
+    this.onEvent({ type: "end", winner, reason, engine: this.engine });
+  }
+
+  destroy() {
+    this.finished = true;
+    this._clearWatchdog();
+    clearTimeout(this._gateTimer);
+    for (const w of this.workers) if (w) w.terminate();
+  }
+}
+</script>
+
+<script>
+// =====================================================================================
+// UI wiring
+// =====================================================================================
+(function () {
+  const $ = (id) => document.getElementById(id);
+
+  // ---- editors -----------------------------------------------------------------------
+  const cmOpts = {
+    mode: "python", theme: "dracula", lineNumbers: true, indentUnit: 4, tabSize: 4,
+    matchBrackets: true, styleActiveLine: true, extraKeys: { Tab: (cm) => cm.replaceSelection("    ") },
+  };
+  const coolCM = CodeMirror.fromTextArea($("coolEditor"), cmOpts);
+  const hotCM = CodeMirror.fromTextArea($("hotEditor"), cmOpts);
+
+  const LS_KEYS = { cool: "chaser-kyoto:code:cool", hot: "chaser-kyoto:code:hot", settings: "chaser-kyoto:settings" };
+
+  function loadInitialCode() {
+    let cool, hot;
+    try { cool = localStorage.getItem(LS_KEYS.cool); } catch (e) {}
+    try { hot = localStorage.getItem(LS_KEYS.hot); } catch (e) {}
+    coolCM.setValue(cool || STARTER_TEMPLATE);
+    hotCM.setValue(hot || SAMPLE_BOTS.greedy.code);
+  }
+  loadInitialCode();
+
+  function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+  function wireAutosave(cm, key, indicatorEl) {
+    const save = debounce(() => {
+      try { localStorage.setItem(key, cm.getValue()); } catch (e) {}
+      indicatorEl.textContent = "保存済み(このブラウザ内) " + new Date().toLocaleTimeString();
+    }, 500);
+    cm.on("change", save);
+  }
+  wireAutosave(coolCM, LS_KEYS.cool, $("coolAutosave"));
+  wireAutosave(hotCM, LS_KEYS.hot, $("hotAutosave"));
+
+  for (const [sel, cm] of [[$("coolSample"), coolCM], [$("hotSample"), hotCM]]) {
+    for (const key of ["idle", "random", "greedy", "scanner"]) {
+      const opt = document.createElement("option");
+      opt.value = key; opt.textContent = SAMPLE_BOTS[key].label;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener("change", () => {
+      if (!sel.value) return;
+      if (cm.getValue().trim() && !confirm("現在のコードを置き換えます。よろしいですか?")) { sel.value = ""; return; }
+      cm.setValue(SAMPLE_BOTS[sel.value].code);
+      sel.value = "";
+    });
+  }
+
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  $("coolDownload").addEventListener("click", () => downloadText("cool.py", coolCM.getValue()));
+  $("hotDownload").addEventListener("click", () => downloadText("hot.py", hotCM.getValue()));
+
+  function wireUpload(inputEl, cm) {
+    inputEl.addEventListener("change", async () => {
+      const file = inputEl.files[0];
+      if (!file) return;
+      cm.setValue(await file.text());
+      inputEl.value = "";
+    });
+  }
+  wireUpload($("coolUpload"), coolCM);
+  wireUpload($("hotUpload"), hotCM);
+
+  // ---- tabs ----------------------------------------------------------------------------
+  function selectTab(which) {
+    $("tabCool").classList.toggle("active", which === "cool");
+    $("tabHot").classList.toggle("active", which === "hot");
+    $("sideCool").classList.toggle("active", which === "cool");
+    $("sideHot").classList.toggle("active", which === "hot");
+    (which === "cool" ? coolCM : hotCM).refresh();
+  }
+  $("tabCool").addEventListener("click", () => selectTab("cool"));
+  $("tabHot").addEventListener("click", () => selectTab("hot"));
+
+  // ---- help dialog -----------------------------------------------------------------------
+  $("openHelp").addEventListener("click", () => $("helpDialog").showModal());
+  $("closeHelp").addEventListener("click", () => $("helpDialog").close());
+
+  // ---- map handling ----------------------------------------------------------------------
+  let currentMap = null;
+  let customMapText = null;
+
+  function buildMap() {
+    const choice = $("mapSelect").value;
+    if (choice === "kyoto2025") return ChaserEngine.parseMapText(KYOTO_2025_MAP_TEXT);
+    if (choice === "custom" && customMapText) return ChaserEngine.parseMapText(customMapText);
+    return ChaserEngine.generateRandomMap({});
+  }
+  $("newRandomMap").addEventListener("click", () => {
+    $("mapSelect").value = "random";
+    currentMap = ChaserEngine.generateRandomMap({});
+    renderBoardSkeleton(currentMap);
+    renderState(new ChaserEngine.GameEngine(currentMap));
+  });
+  $("mapUpload").addEventListener("change", async () => {
+    const file = $("mapUpload").files[0];
+    if (!file) return;
+    customMapText = await file.text();
+    $("mapSelect").value = "custom";
+    currentMap = ChaserEngine.parseMapText(customMapText);
+    renderBoardSkeleton(currentMap);
+    renderState(new ChaserEngine.GameEngine(currentMap));
+    $("mapUpload").value = "";
+  });
+  $("mapDownload").addEventListener("click", () => {
+    const map = currentMap || buildMap();
+    downloadText((map.name || "map").replace(/[^\w\-]+/g, "_") + ".map", ChaserEngine.mapToText(map));
+  });
+  $("mapSelect").addEventListener("change", () => {
+    currentMap = buildMap();
+    renderBoardSkeleton(currentMap);
+    renderState(new ChaserEngine.GameEngine(currentMap));
+  });
+
+  // ---- board rendering ---------------------------------------------------------------------
+  const boardEl = $("board");
+  let cellEls = [];
+
+  function renderBoardSkeleton(map) {
+    boardEl.style.gridTemplateColumns = `repeat(${map.width}, 22px)`;
+    boardEl.innerHTML = "";
+    cellEls = [];
+    for (let y = 0; y < map.height; y++) {
+      const row = [];
+      for (let x = 0; x < map.width; x++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        boardEl.appendChild(cell);
+        row.push(cell);
+      }
+      cellEls.push(row);
+    }
+  }
+
+  function highlightCoords(engine, team, action, direction) {
+    const vec = ChaserEngine.DIRS[direction] || { x: 0, y: 0 };
+    const p = engine.pos[team];
+    const coords = [];
+    if (action === "search") {
+      for (let k = 1; k <= 9; k++) coords.push({ x: p.x + vec.x * k, y: p.y + vec.y * k });
+    } else {
+      let center = p;
+      if (action === "look") center = { x: p.x + vec.x * 2, y: p.y + vec.y * 2 };
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) coords.push({ x: center.x + dx, y: center.y + dy });
+    }
+    return coords;
+  }
+
+  let lastHighlight = [];
+  function renderState(engine, highlight) {
+    for (const c of lastHighlight) {
+      const row = cellEls[c.y]; if (row && row[c.x]) row[c.x].classList.remove("highlight");
+    }
+    lastHighlight = [];
+
+    for (let y = 0; y < engine.height; y++) {
+      for (let x = 0; x < engine.width; x++) {
+        const el = cellEls[y][x];
+        const v = engine.grid[y][x];
+        el.className = "cell" + (v === ChaserEngine.BLOCK ? " block" : v === ChaserEngine.ITEM ? " item" : "");
+        el.innerHTML = "";
+      }
+    }
+    if (highlight) {
+      for (const c of highlight) {
+        if (c.x >= 0 && c.y >= 0 && c.x < engine.width && c.y < engine.height) {
+          cellEls[c.y][c.x].classList.add("highlight");
+          lastHighlight.push(c);
+        }
+      }
+    }
+    for (const [team, cls, label] of [[0, "cool", "C"], [1, "hot", "H"]]) {
+      const p = engine.pos[team];
+      if (p.x >= 0 && p.y >= 0 && p.x < engine.width && p.y < engine.height) {
+        const tok = document.createElement("div");
+        tok.className = "token " + cls;
+        tok.textContent = label;
+        cellEls[p.y][p.x].appendChild(tok);
+      }
+    }
+    $("coolScore").textContent = engine.score[0];
+    $("hotScore").textContent = engine.score[1];
+    $("turnCounter").textContent = `${Math.min(engine.round, engine.turnLimit)} / ${engine.turnLimit}`;
+    $("itemsLeft").textContent = `残りアイテム: ${engine.itemsRemaining}`;
+  }
+
+  // initial board
+  currentMap = buildMap();
+  renderBoardSkeleton(currentMap);
+  renderState(new ChaserEngine.GameEngine(currentMap));
+
+  // ---- log / consoles -------------------------------------------------------------------
+  function logRow(text, cls) {
+    const row = document.createElement("div");
+    row.className = "row" + (cls ? " " + cls : "");
+    row.textContent = text;
+    $("log").appendChild(row);
+    $("log").scrollTop = $("log").scrollHeight;
+  }
+  function consoleWrite(team, text, isErr) {
+    const el = team === 0 ? $("coolConsole") : $("hotConsole");
+    const span = document.createElement("div");
+    if (isErr) span.className = "err";
+    span.textContent = text;
+    el.appendChild(span);
+    el.scrollTop = el.scrollHeight;
+  }
+  function clearConsoles() { $("coolConsole").innerHTML = ""; $("hotConsole").innerHTML = ""; $("log").innerHTML = ""; }
+
+  const ACTION_LABEL = { walk: "歩く", look: "見る", search: "サーチ", put: "置く" };
+  const DIR_LABEL = { up: "上", down: "下", left: "左", right: "右" };
+  const REASON_LABEL = {
+    block: "ブロックに乗って自滅した", surrounded: "周囲をブロックで囲まれて動けなくなった",
+    score: "規定ラウンドに到達、アイテム数で判定", draw: "アイテム数が同数で引き分け",
+    protocol: "反則行為があった", crash: "プログラムがエラーで停止した",
+    timeout: "制限時間内に応答がなかった(思考時間切れ)", "program-ended": "プログラムの実行が終了した(行動しなくなった)",
+  };
+
+  // ---- match control ----------------------------------------------------------------------
+  let match = null;
+
+  function setRunning(running) {
+    $("runBtn").disabled = running;
+    $("pauseBtn").disabled = !running;
+    $("stepBtn").disabled = !running;
+    $("pauseBtn").textContent = "⏸ 一時停止";
+  }
+
+  function onMatchEvent(ev) {
+    if (ev.type === "status") consoleWrite(ev.team, "[" + ev.text + "]");
+    else if (ev.type === "stdout") consoleWrite(ev.team, ev.text);
+    else if (ev.type === "stderr") consoleWrite(ev.team, ev.text, true);
+    else if (ev.type === "log") logRow(ev.text);
+    else if (ev.type === "action") {
+      const teamName = ev.engine.teamName(ev.team);
+      if (ev.phase === "ready") {
+        logRow(`R${Math.min(ev.engine.round, ev.engine.turnLimit)} ${teamName}: get_ready()`);
+        renderState(ev.engine);
+      } else {
+        const label = `${ACTION_LABEL[ev.action] || ev.action}(${DIR_LABEL[ev.direction] || ev.direction})`;
+        logRow(`R${Math.min(ev.engine.round, ev.engine.turnLimit)} ${teamName}: ${label}`);
+        const hl = highlightCoords(ev.engine, ev.team, ev.action, ev.direction);
+        renderState(ev.engine, hl);
+      }
+    } else if (ev.type === "end") {
+      renderState(ev.engine);
+      setRunning(false);
+      const banner = $("resultBanner");
+      banner.classList.add("show");
+      if (ev.winner == null) {
+        banner.className = "show info";
+        banner.textContent = `引き分け(${REASON_LABEL[ev.reason] || ev.reason})`;
+        logRow(`引き分け: ${REASON_LABEL[ev.reason] || ev.reason}`);
+      } else {
+        const name = ev.engine.teamName(ev.winner);
+        banner.className = "show win";
+        banner.textContent = `${name} の勝利!(${REASON_LABEL[ev.reason] || ev.reason})`;
+        logRow(`${name} の勝利: ${REASON_LABEL[ev.reason] || ev.reason}`, "win");
+      }
+    }
+  }
+
+  $("runBtn").addEventListener("click", () => {
+    if (match) match.destroy();
+    clearConsoles();
+    $("resultBanner").classList.remove("show");
+    currentMap = buildMap();
+    renderBoardSkeleton(currentMap);
+    const speed = 900 - parseInt($("speedRange").value, 10);
+    match = new ChaserMatch({
+      map: currentMap,
+      coolCode: coolCM.getValue(),
+      hotCode: hotCM.getValue(),
+      speedMs: speed,
+      onEvent: onMatchEvent,
+    });
+    renderState(match.engine);
+    setRunning(true);
+  });
+
+  $("pauseBtn").addEventListener("click", () => {
+    if (!match) return;
+    if (match.paused) { match.resume(); $("pauseBtn").textContent = "⏸ 一時停止"; }
+    else { match.pause(); $("pauseBtn").textContent = "▶ 再開"; }
+  });
+  $("stepBtn").addEventListener("click", () => { if (match) { if (!match.paused) match.pause(); match.step(); } });
+  $("resetBtn").addEventListener("click", () => {
+    if (match) { match.destroy(); match = null; }
+    clearConsoles();
+    $("resultBanner").classList.remove("show");
+    renderBoardSkeleton(currentMap);
+    renderState(new ChaserEngine.GameEngine(currentMap));
+    setRunning(false);
+  });
+  $("speedRange").addEventListener("input", () => { if (match) match.setSpeed(900 - parseInt($("speedRange").value, 10)); });
+})();
+</script>
+</body>
+</html>
