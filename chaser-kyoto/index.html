@@ -69,11 +69,18 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 
 /* "stage" = the official chaser-server look (fixed cream palette, ignores light/dark theme,
    deliberately matching https://www.kyoto-shigaku.info/wp-content/uploads/chaser.gif) */
-.stage{display:flex;flex-wrap:wrap;gap:0;background:#fdfccb;border:2px solid #2b2b2b;border-radius:4px;overflow:hidden;color:#161616;}
+.stage{position:relative;display:flex;flex-wrap:wrap;gap:0;background:#fdfccb;border:2px solid #2b2b2b;border-radius:4px;overflow:hidden;color:#161616;}
 .stage.dragover{outline:3px dashed #3fa9f5;outline-offset:-3px;}
+.stage:fullscreen{width:100vw;height:100vh;}
+.stage-fullscreen-btn{position:absolute;top:8px;right:8px;z-index:6;width:30px;height:30px;padding:0;border-radius:6px;border:1px solid #2b2b2b;background:rgba(255,255,255,.85);color:#161616;font-size:15px;line-height:1;cursor:pointer;}
+.stage-fullscreen-btn:hover{background:#fff;}
+.stage-loading{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(253,252,203,.94);color:#161616;font-size:14px;font-weight:600;text-align:center;}
+.stage-loading.show{display:flex;}
+.stage-loading .spinner{width:38px;height:38px;border:4px solid #cfc98a;border-top-color:#2b2b2b;border-radius:50%;animation:stage-spin .8s linear infinite;}
+@keyframes stage-spin{to{transform:rotate(360deg);}}
 #board-wrap{overflow:auto;padding:10px;background:#fdfccb;flex:1 1 auto;}
 #board{display:grid;gap:0;width:max-content;}
-.cell{position:relative;width:26px;height:26px;background-size:100% 100%;background-repeat:no-repeat;background-color:#fdfccb;}
+.cell{position:relative;width:26px;height:26px;background-size:100% 100%;background-repeat:no-repeat;background-color:#ffffff;}
 .cell .content,.cell .overlay,.cell .tok{position:absolute;inset:0;background-size:100% 100%;background-repeat:no-repeat;}
 .stage-side{flex:0 0 200px;background:#fdfccb;border-left:2px solid #2b2b2b;padding:14px 16px;display:flex;flex-direction:column;gap:16px;font-family:"Segoe UI","Hiragino Sans","Yu Gothic UI",sans-serif;}
 .stage-turnbox{text-align:center;}
@@ -169,6 +176,11 @@ footer a{color:var(--muted);}
     </div>
 
     <div class="stage" id="stage">
+      <button type="button" id="stageFullscreenBtn" class="stage-fullscreen-btn" title="全画面表示">⛶</button>
+      <div class="stage-loading" id="stageLoading">
+        <div class="spinner"></div>
+        <div id="stageLoadingText">Pyodide を読み込み中…</div>
+      </div>
       <div id="board-wrap"><div id="board"></div></div>
       <div class="stage-side">
         <div class="stage-turnbox" id="turnBox">
@@ -1023,10 +1035,35 @@ class ChaserMatch {
     this._gateTimer = null;
     this._pendingGate = null;
     this._watchdog = null;
+    this.loaded = false;    // both workers finished loading Pyodide and are about to run code
+    this.started = false;   // UI has finished the countdown/reveal animation; turns may now proceed
+    this._readyCount = 0;
+    this._loadedWaiters = [];
 
     this.workers[0] = this._spawn(0, coolCode);
     this.workers[1] = this._spawn(1, hotCode);
+  }
+
+  // Resolves once both workers have loaded Pyodide (or immediately if that already
+  // happened, or the match already ended before it did -- e.g. an init crash).
+  whenLoaded() {
+    if (this.loaded || this.finished) return Promise.resolve();
+    return new Promise((resolve) => this._loadedWaiters.push(resolve));
+  }
+  _resolveLoadedWaiters() {
+    const waiters = this._loadedWaiters;
+    this._loadedWaiters = [];
+    for (const w of waiters) w();
+  }
+
+  // Called by the UI once the loading-spinner -> countdown -> reveal-animation sequence
+  // has finished, so gameplay (and the TLE watchdog) doesn't begin while that's playing.
+  begin() {
+    if (this.started || this.finished) return;
+    this.started = true;
     this._armWatchdog();
+    const queued = this.pendingByTeam[this.current];
+    if (queued) { this.pendingByTeam[this.current] = null; this._onCall(this.current, queued); }
   }
 
   _spawn(team, code) {
@@ -1050,10 +1087,19 @@ class ChaserMatch {
     else if (msg.type === "crash") this._crash(team, msg.message);
     else if (msg.type === "finished") this._endGame(this.engine.other(team), "program-ended");
     else if (msg.type === "call") this._onCall(team, msg);
+    else if (msg.type === "ready") {
+      this._readyCount++;
+      if (this._readyCount >= 2 && !this.loaded) {
+        this.loaded = true;
+        this.onEvent({ type: "loaded" });
+        this._resolveLoadedWaiters();
+      }
+    }
   }
 
   _onCall(team, msg) {
     if (this.finished) return;
+    if (!this.started) { this.pendingByTeam[team] = msg; return; }
     if (team !== this.current) { this.pendingByTeam[team] = msg; return; }
 
     const expected = this.phase;
@@ -1160,6 +1206,7 @@ class ChaserMatch {
     this._clearWatchdog();
     clearTimeout(this._gateTimer);
     for (const w of this.workers) if (w) w.terminate();
+    this._resolveLoadedWaiters();
     this.onEvent({ type: "end", winner, reason, engine: this.engine });
   }
 
@@ -1168,6 +1215,7 @@ class ChaserMatch {
     this._clearWatchdog();
     clearTimeout(this._gateTimer);
     for (const w of this.workers) if (w) w.terminate();
+    this._resolveLoadedWaiters();
   }
 }
 </script>
@@ -1317,6 +1365,27 @@ class ChaserMatch {
   // ---- help dialog -----------------------------------------------------------------------
   $("openHelp").addEventListener("click", () => $("helpDialog").showModal());
   $("closeHelp").addEventListener("click", () => $("helpDialog").close());
+
+  // ---- stage fullscreen toggle ------------------------------------------------------------
+  const stageEl = $("stage");
+  const requestFs = stageEl.requestFullscreen || stageEl.webkitRequestFullscreen || stageEl.msRequestFullscreen;
+  const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  $("stageFullscreenBtn").addEventListener("click", () => {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (exitFs) exitFs.call(document);
+    } else if (requestFs) {
+      const p = requestFs.call(stageEl);
+      if (p && p.catch) p.catch(() => {});
+    }
+  });
+  function onFullscreenChange() {
+    const active = (document.fullscreenElement || document.webkitFullscreenElement) === stageEl;
+    const btn = $("stageFullscreenBtn");
+    btn.textContent = active ? "⤢" : "⛶";
+    btn.title = active ? "全画面表示を終了" : "全画面表示";
+  }
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
   // ---- map handling ----------------------------------------------------------------------
   let currentMap = null;
@@ -1513,6 +1582,9 @@ class ChaserMatch {
 
   // ---- sound: countdown beeps at match start, chaser-server's fanfare at match end -----
   let audioCtx = null;
+  // Modeled on https://soundeffect-lab.info/sound/anime/mp3/electronic-countdown1.mp3
+  // (3 short beeps 1s apart, then one longer tone a fifth below), transposed one octave
+  // down per user request: beeps ~1563Hz (reference ~3126Hz), final tone ~1047Hz (reference ~2095Hz).
   function playCountdown() {
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -1523,17 +1595,18 @@ class ChaserMatch {
         osc.type = "sine";
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.exponentialRampToValueAtTime(0.3, time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.3, time + 0.015);
+        gain.gain.setValueAtTime(0.3, time + Math.max(0, dur - 0.05));
         gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
         osc.connect(gain).connect(ctx.destination);
         osc.start(time);
         osc.stop(time + dur + 0.05);
       };
       const now = ctx.currentTime + 0.05;
-      beep(now, 440, 0.15);        // "3"
-      beep(now + 0.7, 440, 0.15);  // "2"
-      beep(now + 1.4, 440, 0.15);  // "1"
-      beep(now + 2.1, 880, 0.35);  // "GO" -- higher pitch, held longer
+      beep(now, 1563, 0.36);
+      beep(now + 1.0, 1563, 0.36);
+      beep(now + 2.0, 1563, 0.36);
+      beep(now + 3.0, 1047, 1.2);
     } catch (e) {}
   }
   function playFanfare() {
@@ -1595,7 +1668,8 @@ class ChaserMatch {
       const teamName = ev.engine.teamName(ev.team);
       if (ev.phase === "ready") {
         logRow(`R${Math.min(ev.engine.round, ev.engine.turnLimit)} ${teamName}: get_ready()`);
-        renderState(ev.engine);
+        const coords = highlightCoords(ev.engine, ev.team, "ready", null);
+        renderState(ev.engine, { action: "ready", coords });
       } else {
         const label = `${ACTION_LABEL[ev.action] || ev.action}(${DIR_LABEL[ev.direction] || ev.direction})`;
         logRow(`R${Math.min(ev.engine.round, ev.engine.turnLimit)} ${teamName}: ${label}`);
@@ -1625,6 +1699,13 @@ class ChaserMatch {
     const banner = $("winBanner");
     banner.style.display = "none";
     banner.textContent = "";
+    setLoading(false);
+  }
+
+  function setLoading(on, text) {
+    const el = $("stageLoading");
+    if (text) $("stageLoadingText").textContent = text;
+    el.classList.toggle("show", !!on);
   }
 
   let runToken = 0; // invalidates an in-flight start animation if reset/run-again happens mid-animation
@@ -1639,11 +1720,9 @@ class ChaserMatch {
     currentMap = buildMap();
     renderBoardSkeleton(currentMap);
     $("runBtn").disabled = true;
-    playCountdown();
-    await playStartAnimation(currentMap);
-    if (myToken !== runToken) return; // superseded by a reset or another run while we were animating
-    renderState(new ChaserEngine.GameEngine(currentMap));
 
+    // 1) Load Pyodide in both workers first, with a spinner -- no countdown/animation yet.
+    setLoading(true, "Pyodide を読み込み中…");
     const speed = 900 - parseInt($("speedRange").value, 10);
     match = new ChaserMatch({
       map: currentMap,
@@ -1652,7 +1731,20 @@ class ChaserMatch {
       speedMs: speed,
       onEvent: onMatchEvent,
     });
+    await match.whenLoaded();
+    if (myToken !== runToken) return; // superseded by a reset or another run while we were loading
+    setLoading(false);
+    if (match.finished) { $("runBtn").disabled = false; return; } // e.g. crashed during Pyodide init
+
+    // 2) Only once loading is actually done: countdown sound + board reveal animation.
+    playCountdown();
+    await playStartAnimation(currentMap);
+    if (myToken !== runToken) return; // superseded by a reset or another run while we were animating
+    if (match.finished) { $("runBtn").disabled = false; return; }
     renderState(match.engine);
+
+    // 3) Now let real gameplay (and the TLE watchdog) begin.
+    match.begin();
     setRunning(true);
   }
   $("runBtn").addEventListener("click", startMatch);
