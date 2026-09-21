@@ -71,9 +71,9 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
    deliberately matching https://www.kyoto-shigaku.info/wp-content/uploads/chaser.gif) */
 .stage{position:relative;display:flex;flex-wrap:wrap;gap:0;background:#fdfccb;border:2px solid #2b2b2b;border-radius:4px;overflow:hidden;color:#161616;}
 .stage.dragover{outline:3px dashed #3fa9f5;outline-offset:-3px;}
-.stage:fullscreen{width:100vw;height:100vh;}
-.stage-fullscreen-btn{position:absolute;top:8px;right:8px;z-index:6;width:30px;height:30px;padding:0;border-radius:6px;border:1px solid #2b2b2b;background:rgba(255,255,255,.85);color:#161616;font-size:15px;line-height:1;cursor:pointer;}
-.stage-fullscreen-btn:hover{background:#fff;}
+#boardPanel{position:relative;}
+#boardPanel:fullscreen{width:100vw;height:100vh;overflow:auto;background:var(--panel);}
+.panel-fullscreen-btn{position:absolute;top:10px;right:10px;z-index:6;width:30px;height:30px;padding:0;border-radius:6px;cursor:pointer;}
 .stage-loading{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(253,252,203,.94);color:#161616;font-size:14px;font-weight:600;text-align:center;}
 .stage-loading.show{display:flex;}
 .stage-loading .spinner{width:38px;height:38px;border:4px solid #cfc98a;border-top-color:#2b2b2b;border-radius:50%;animation:stage-spin .8s linear infinite;}
@@ -161,7 +161,8 @@ footer a{color:var(--muted);}
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="boardPanel">
+    <button type="button" id="panelFullscreenBtn" class="panel-fullscreen-btn" title="全画面表示">⛶</button>
     <div class="controls-row">
       <select id="mapSelect">
         <option value="random">ランダムマップ</option>
@@ -176,7 +177,6 @@ footer a{color:var(--muted);}
     </div>
 
     <div class="stage" id="stage">
-      <button type="button" id="stageFullscreenBtn" class="stage-fullscreen-btn" title="全画面表示">⛶</button>
       <div class="stage-loading" id="stageLoading">
         <div class="spinner"></div>
         <div id="stageLoadingText">Pyodide を読み込み中…</div>
@@ -765,6 +765,10 @@ function chaserWorkerMain() {
   let reqId = 0;
   const pending = new Map();
   let ctrlView = null; // Int32Array over a SharedArrayBuffer, only set up in sync mode
+  let pyodide = null;
+  let syncMode = false;
+  let warmed = false; // Pyodide itself has finished loading (see the "warmup"/"run" split below)
+  let pendingRun = null; // a "run" that arrived before warmup finished
 
   // Best-effort source transform used only in fallback (non-sync) mode: rewrites plain
   // synchronous client.xxx() calls into `await`-ed calls, promoting whichever functions
@@ -949,6 +953,37 @@ sys.modules["CHaser"] = _chaser_module
 `;
   }
 
+  // Loading Pyodide (the ~10MB wasm runtime + stdlib) is by far the slowest part of
+  // starting a match, and doesn't depend on which team or code will run -- so it's split
+  // out into its own "warmup" step that the page can kick off as soon as it loads (see
+  // the warm worker pool below), well before anyone presses "対戦開始". "run" (which does
+  // depend on the team/code) queues itself as `pendingRun` if warmup hasn't finished yet,
+  // so this still works correctly for a worker that's spawned cold, with no warm-up at all.
+  async function runUserCode(team, code) {
+    pyodide.globals.set("_team_name", team);
+    const shim = buildShim(syncMode);
+
+    if (!syncMode) {
+      // No SharedArrayBuffer here, so plain synchronous client.xxx() calls (the real
+      // CHaser.py style) can't work as-is -- best-effort auto-insert `await` (and
+      // promote whichever functions touch it to `async def`) so the same unmodified
+      // source still runs. Falls back to the untouched source if anything looks
+      // unsafe (generators, syntax it can't model) or fails to compile.
+      pyodide.runPython(AUTOASYNCIFY_SRC);
+      pyodide.globals.set("_user_code_text", code);
+      code = pyodide.runPython("_autoasyncify(_user_code_text)");
+    }
+
+    postMessage({ type: "status", text: syncMode ? "プログラムを実行中…(同期モード / awaitなしでOK)" : "プログラムを実行中…(非同期モード / 自動でawaitを補完)" });
+    postMessage({ type: "ready" });
+    try {
+      await pyodide.runPythonAsync(shim + "\n" + code);
+      postMessage({ type: "finished" });
+    } catch (err) {
+      postMessage({ type: "crash", message: (err && err.message) ? err.message : String(err) });
+    }
+  }
+
   self.onmessage = async function (ev) {
     const msg = ev.data;
     if (msg.type === "reply") {
@@ -956,45 +991,29 @@ sys.modules["CHaser"] = _chaser_module
       if (resolve) { pending.delete(msg.id); resolve(msg.result); }
       return;
     }
-    if (msg.type !== "init") return;
 
-    const syncMode = !!msg.sab;
-    if (syncMode) ctrlView = new Int32Array(msg.sab);
-
-    try {
-      postMessage({ type: "status", text: "Pyodide を読み込み中…" });
-      importScripts(msg.pyodideUrl + "pyodide.js");
-      const pyodide = await loadPyodide({ indexURL: msg.pyodideUrl });
-
-      pyodide.setStdout({ batched: (t) => postMessage({ type: "stdout", text: t }) });
-      pyodide.setStderr({ batched: (t) => postMessage({ type: "stderr", text: t }) });
-      pyodide.globals.set("_native_call", syncMode ? nativeCallSync : nativeCallAsync);
-      pyodide.globals.set("_team_name", msg.team);
-
-      const shim = buildShim(syncMode);
-
-      let code = msg.code;
-      if (!syncMode) {
-        // No SharedArrayBuffer here, so plain synchronous client.xxx() calls (the real
-        // CHaser.py style) can't work as-is -- best-effort auto-insert `await` (and
-        // promote whichever functions touch it to `async def`) so the same unmodified
-        // source still runs. Falls back to the untouched source if anything looks
-        // unsafe (generators, syntax it can't model) or fails to compile.
-        pyodide.runPython(AUTOASYNCIFY_SRC);
-        pyodide.globals.set("_user_code_text", code);
-        code = pyodide.runPython("_autoasyncify(_user_code_text)");
-      }
-
-      postMessage({ type: "status", text: syncMode ? "プログラムを実行中…(同期モード / awaitなしでOK)" : "プログラムを実行中…(非同期モード / 自動でawaitを補完)" });
-      postMessage({ type: "ready" });
+    if (msg.type === "warmup") {
+      syncMode = !!msg.sab;
+      if (syncMode) ctrlView = new Int32Array(msg.sab);
       try {
-        await pyodide.runPythonAsync(shim + "\n" + code);
-        postMessage({ type: "finished" });
+        postMessage({ type: "status", text: "Pyodide を読み込み中…" });
+        importScripts(msg.pyodideUrl + "pyodide.js");
+        pyodide = await loadPyodide({ indexURL: msg.pyodideUrl });
+        pyodide.setStdout({ batched: (t) => postMessage({ type: "stdout", text: t }) });
+        pyodide.setStderr({ batched: (t) => postMessage({ type: "stderr", text: t }) });
+        pyodide.globals.set("_native_call", syncMode ? nativeCallSync : nativeCallAsync);
+        warmed = true;
+        postMessage({ type: "warm" });
+        if (pendingRun) { const r = pendingRun; pendingRun = null; runUserCode(r.team, r.code); }
       } catch (err) {
-        postMessage({ type: "crash", message: (err && err.message) ? err.message : String(err) });
+        postMessage({ type: "crash", message: "Pyodideの初期化に失敗しました: " + ((err && err.message) ? err.message : String(err)) });
       }
-    } catch (err) {
-      postMessage({ type: "crash", message: "Pyodideの初期化に失敗しました: " + ((err && err.message) ? err.message : String(err)) });
+      return;
+    }
+
+    if (msg.type === "run") {
+      if (!warmed) { pendingRun = { team: msg.team, code: msg.code }; return; }
+      runUserCode(msg.team, msg.code);
     }
   };
 }
@@ -1011,6 +1030,47 @@ function createChaserWorker() {
   const blob = new Blob([src], { type: "application/javascript" });
   return new Worker(URL.createObjectURL(blob));
 }
+
+// =====================================================================================
+// Warm worker pool: Pyodide loading is the slow, network-bound part of starting a match,
+// and doesn't depend on which code will run -- so kick it off for a couple of idle workers
+// as soon as the page loads, instead of waiting until "対戦開始" is pressed. A match's
+// ChaserMatch._spawn() takes from this pool (claiming whatever's there, warmed or not, to
+// avoid duplicating an in-flight fetch) and the pool immediately starts replacements.
+// =====================================================================================
+const WARM_POOL_SIZE = 2;
+const warmPool = [];
+
+function spawnWarmWorker() {
+  const worker = createChaserWorker();
+  const sab = SYNC_CAPABLE ? new SharedArrayBuffer(4 * 10) : null;
+  const entry = { worker, ready: false, sab };
+  const drop = () => {
+    const idx = warmPool.indexOf(entry);
+    if (idx !== -1) { warmPool.splice(idx, 1); replenishWarmPool(); }
+  };
+  worker.onmessage = (ev) => {
+    const t = ev.data && ev.data.type;
+    if (t === "warm") entry.ready = true;
+    else if (t === "crash") { worker.terminate(); drop(); }
+  };
+  worker.onerror = () => { worker.terminate(); drop(); };
+  worker.postMessage({ type: "warmup", pyodideUrl: PYODIDE_URL, sab });
+  warmPool.push(entry);
+}
+
+function replenishWarmPool() {
+  while (warmPool.length < WARM_POOL_SIZE) spawnWarmWorker();
+}
+
+function takeWarmWorker() {
+  if (!warmPool.length) return null;
+  const entry = warmPool.shift();
+  replenishWarmPool();
+  return entry;
+}
+
+replenishWarmPool();
 </script>
 
 <script>
@@ -1067,15 +1127,17 @@ class ChaserMatch {
   }
 
   _spawn(team, code) {
-    const worker = createChaserWorker();
+    // Reuse a pre-warmed worker if the pool has one (ready or still loading -- either way
+    // it's already past the importScripts/network fetch, which is the slow part). Falls
+    // back to a cold worker only if the pool is empty (e.g. two matches started back to back).
+    const warm = takeWarmWorker();
+    const worker = warm ? warm.worker : createChaserWorker();
+    const sab = warm ? warm.sab : (SYNC_CAPABLE ? new SharedArrayBuffer(4 * 10) : null); // [0]=ready flag, [1..9]=9-int result
     worker.onmessage = (ev) => this._onWorkerMessage(team, ev.data);
     worker.onerror = (ev) => this._crash(team, (ev && ev.message) || "worker error");
-    let sab = null;
-    if (SYNC_CAPABLE) {
-      sab = new SharedArrayBuffer(4 * 10); // [0]=ready flag, [1..9]=9-int result
-      this.syncViews[team] = new Int32Array(sab);
-    }
-    worker.postMessage({ type: "init", team: team === 0 ? "COOL" : "HOT", code, pyodideUrl: PYODIDE_URL, sab });
+    if (sab) this.syncViews[team] = new Int32Array(sab);
+    if (!warm) worker.postMessage({ type: "warmup", pyodideUrl: PYODIDE_URL, sab });
+    worker.postMessage({ type: "run", team: team === 0 ? "COOL" : "HOT", code });
     return worker;
   }
 
@@ -1366,21 +1428,21 @@ class ChaserMatch {
   $("openHelp").addEventListener("click", () => $("helpDialog").showModal());
   $("closeHelp").addEventListener("click", () => $("helpDialog").close());
 
-  // ---- stage fullscreen toggle ------------------------------------------------------------
-  const stageEl = $("stage");
-  const requestFs = stageEl.requestFullscreen || stageEl.webkitRequestFullscreen || stageEl.msRequestFullscreen;
+  // ---- board panel fullscreen toggle (map controls + board + match controls + log) -------
+  const boardPanelEl = $("boardPanel");
+  const requestFs = boardPanelEl.requestFullscreen || boardPanelEl.webkitRequestFullscreen || boardPanelEl.msRequestFullscreen;
   const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
-  $("stageFullscreenBtn").addEventListener("click", () => {
+  $("panelFullscreenBtn").addEventListener("click", () => {
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       if (exitFs) exitFs.call(document);
     } else if (requestFs) {
-      const p = requestFs.call(stageEl);
+      const p = requestFs.call(boardPanelEl);
       if (p && p.catch) p.catch(() => {});
     }
   });
   function onFullscreenChange() {
-    const active = (document.fullscreenElement || document.webkitFullscreenElement) === stageEl;
-    const btn = $("stageFullscreenBtn");
+    const active = (document.fullscreenElement || document.webkitFullscreenElement) === boardPanelEl;
+    const btn = $("panelFullscreenBtn");
     btn.textContent = active ? "⤢" : "⛶";
     btn.title = active ? "全画面表示を終了" : "全画面表示";
   }
@@ -1583,8 +1645,9 @@ class ChaserMatch {
   // ---- sound: countdown beeps at match start, chaser-server's fanfare at match end -----
   let audioCtx = null;
   // Modeled on https://soundeffect-lab.info/sound/anime/mp3/electronic-countdown1.mp3
-  // (3 short beeps 1s apart, then one longer tone a fifth below), transposed one octave
-  // down per user request: beeps ~1563Hz (reference ~3126Hz), final tone ~1047Hz (reference ~2095Hz).
+  // (3 short beeps 1s apart, then one longer tone a fifth below), transposed two octaves
+  // down from the reference's own pitches (~3126Hz/~2095Hz) per user request for a deeper,
+  // race-start-like tone: beeps ~782Hz, final tone ~523Hz.
   function playCountdown() {
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -1603,10 +1666,10 @@ class ChaserMatch {
         osc.stop(time + dur + 0.05);
       };
       const now = ctx.currentTime + 0.05;
-      beep(now, 1563, 0.36);
-      beep(now + 1.0, 1563, 0.36);
-      beep(now + 2.0, 1563, 0.36);
-      beep(now + 3.0, 1047, 1.2);
+      beep(now, 782, 0.36);
+      beep(now + 1.0, 782, 0.36);
+      beep(now + 2.0, 782, 0.36);
+      beep(now + 3.0, 523, 1.2);
     } catch (e) {}
   }
   function playFanfare() {
