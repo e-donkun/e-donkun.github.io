@@ -1859,7 +1859,7 @@ class ChaserMatch {
   // ---- sound: countdown beeps at match start, chaser-server's fanfare at match end -----
   let audioCtx = null;
   // "3, 2, 1, 0" countdown: three low beeps on C#4 (277.18Hz), then a high beep on
-  // E5 (659.25Hz) for "0" -- a simple sine oscillator through a short attack/release
+  // C#5 (554.37Hz) for "0" -- a simple sine oscillator through a short attack/release
   // envelope, the way a single-oscillator synth patch (sine wave, no filter/effects)
   // would play it.
   function playCountdown() {
@@ -1867,7 +1867,7 @@ class ChaserMatch {
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
       const ctx = audioCtx;
-      const CS4 = 277.18, E5 = 659.25;
+      const CS4 = 277.18, CS5 = 554.37;
       const beep = (time, freq, dur) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -1885,7 +1885,7 @@ class ChaserMatch {
       beep(now, CS4, 0.36);
       beep(now + 1.0, CS4, 0.36);
       beep(now + 2.0, CS4, 0.36);
-      beep(now + 3.0, E5, 1.2);
+      beep(now + 3.0, CS5, 1.2);
     } catch (e) {}
   }
   function playFanfare() {
