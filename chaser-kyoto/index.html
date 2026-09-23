@@ -150,34 +150,36 @@ footer a{color:var(--muted);}
 
     <div id="sideCool" class="side active">
       <div class="editor-toolbar">
-        <select id="coolSample">
-          <option value="">サンプルを読み込む…</option>
+        <select id="coolBotSelect">
+          <option value="">ボットを読み込む…</option>
         </select>
         <span class="grow"></span>
-        <label class="btn" style="padding:6px 10px;">読込
+        <label class="btn" id="coolUploadLabel" style="padding:6px 10px;">読込
           <input type="file" id="coolUpload" accept=".py,text/x-python" style="display:none;">
         </label>
         <button id="coolDownload">保存(.py)</button>
+        <button id="coolClearBot" style="display:none;">ボットの設定を解除する</button>
       </div>
       <div class="controls-row"><label for="coolName" class="small">プレイヤー名</label><input type="text" id="coolName" class="name-input" placeholder="COOL" maxlength="20"></div>
-      <div class="editor-host"><textarea id="coolEditor"></textarea></div>
+      <div class="editor-host" id="coolEditorHost"><textarea id="coolEditor"></textarea></div>
       <div class="controls-row"><span class="badge cool">COOL</span><span class="small" id="coolAutosave"></span></div>
       <div class="console code-mono" id="coolConsole"></div>
     </div>
 
     <div id="sideHot" class="side">
       <div class="editor-toolbar">
-        <select id="hotSample">
-          <option value="">サンプルを読み込む…</option>
+        <select id="hotBotSelect">
+          <option value="">ボットを読み込む…</option>
         </select>
         <span class="grow"></span>
-        <label class="btn" style="padding:6px 10px;">読込
+        <label class="btn" id="hotUploadLabel" style="padding:6px 10px;">読込
           <input type="file" id="hotUpload" accept=".py,text/x-python" style="display:none;">
         </label>
         <button id="hotDownload">保存(.py)</button>
+        <button id="hotClearBot" style="display:none;">ボットの設定を解除する</button>
       </div>
       <div class="controls-row"><label for="hotName" class="small">プレイヤー名</label><input type="text" id="hotName" class="name-input" placeholder="HOT" maxlength="20"></div>
-      <div class="editor-host"><textarea id="hotEditor"></textarea></div>
+      <div class="editor-host" id="hotEditorHost"><textarea id="hotEditor"></textarea></div>
       <div class="controls-row"><span class="badge hot">HOT</span><span class="small" id="hotAutosave"></span></div>
       <div class="console code-mono" id="hotConsole"></div>
     </div>
@@ -1560,19 +1562,99 @@ class ChaserMatch {
   $("hotName").addEventListener("input", () => { saveHotName(); refreshStageNames(); });
   refreshStageNames();
 
-  for (const [sel, cm] of [[$("coolSample"), coolCM], [$("hotSample"), hotCM]]) {
-    for (const key of ["idle", "random", "greedy", "scanner"]) {
+  // set a name programmatically (bot loading / "#Player:" directive) and persist it,
+  // same as if the player had typed it into the name field themselves.
+  function setPlayerName(team, name) {
+    const el = team === 0 ? $("coolName") : $("hotName");
+    el.value = name;
+    (team === 0 ? saveCoolName : saveHotName)();
+    refreshStageNames();
+  }
+
+  // ---- CHaser Kyoto独自拡張: プログラム1行目の "#Player:名前" でプレイヤー名を指定できる ----
+  function extractPlayerDirective(code) {
+    const firstLine = code.split(/\r?\n/, 1)[0] || "";
+    const m = /^#\s*Player\s*:\s*(.+?)\s*$/.exec(firstLine);
+    return m ? m[1] : null;
+  }
+  function applyPlayerDirective(team, cm) {
+    if (botActive[team]) return; // ボット読み込み中は名前をコードの内容で上書きしない
+    const name = extractPlayerDirective(cm.getValue());
+    if (name != null) setPlayerName(team, name);
+  }
+
+  // ---- ボット読み込み ---------------------------------------------------------------------
+  // 「自動くん」は常に使える組み込みボット。他のボット(ランダムウォーク/botV4など)は
+  // index.html と同じ場所に置かれた bot.json から読み込む。bot.json が無い/読み込めない
+  // 環境(file:// で直接開いた場合など)では「自動くん」だけが選べる。
+  const BOTS = { idle: { name: "自動くん", code: SAMPLE_BOTS.idle.code } };
+  const botActive = [null, null]; // 各サイドで読み込み中のボットID、無ければnull
+
+  function populateBotSelect(sel) {
+    const prev = sel.value;
+    sel.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = ""; placeholder.textContent = "ボットを読み込む…";
+    sel.appendChild(placeholder);
+    for (const id of Object.keys(BOTS)) {
       const opt = document.createElement("option");
-      opt.value = key; opt.textContent = SAMPLE_BOTS[key].label;
+      opt.value = id; opt.textContent = BOTS[id].name;
       sel.appendChild(opt);
     }
+    sel.value = prev in BOTS ? prev : "";
+  }
+  populateBotSelect($("coolBotSelect"));
+  populateBotSelect($("hotBotSelect"));
+
+  fetch("bot.json").then((r) => (r.ok ? r.json() : null)).then((data) => {
+    if (!data || !Array.isArray(data.bots)) return;
+    for (const b of data.bots) {
+      if (b && b.id && b.name && typeof b.code === "string") BOTS[b.id] = { name: b.name, code: b.code };
+    }
+    populateBotSelect($("coolBotSelect"));
+    populateBotSelect($("hotBotSelect"));
+  }).catch(() => {});
+
+  function setBotUI(team, active) {
+    const p = team === 0 ? "cool" : "hot";
+    $(p + "UploadLabel").style.display = active ? "none" : "";
+    $(p + "Download").style.display = active ? "none" : "";
+    $(p + "EditorHost").style.display = active ? "none" : "";
+    $(p + "ClearBot").style.display = active ? "" : "none";
+    $(p + "Name").disabled = active;
+  }
+
+  function loadBot(team, id) {
+    const bot = BOTS[id];
+    if (!bot) return;
+    const cm = team === 0 ? coolCM : hotCM;
+    botActive[team] = id; // set before setValue() so its "change" event skips the #Player: directive
+    cm.setValue(bot.code);
+    setPlayerName(team, bot.name);
+    setBotUI(team, true);
+  }
+  function clearBot(team) {
+    botActive[team] = null;
+    setPlayerName(team, "");
+    setBotUI(team, false);
+    (team === 0 ? coolCM : hotCM).refresh(); // fix line measurements after being display:none
+  }
+
+  for (const [sel, team, cm] of [[$("coolBotSelect"), 0, coolCM], [$("hotBotSelect"), 1, hotCM]]) {
     sel.addEventListener("change", () => {
       if (!sel.value) return;
       if (cm.getValue().trim() && !confirm("現在のコードを置き換えます。よろしいですか?")) { sel.value = ""; return; }
-      cm.setValue(SAMPLE_BOTS[sel.value].code);
+      loadBot(team, sel.value);
       sel.value = "";
     });
   }
+  $("coolClearBot").addEventListener("click", () => clearBot(0));
+  $("hotClearBot").addEventListener("click", () => clearBot(1));
+
+  coolCM.on("change", () => applyPlayerDirective(0, coolCM));
+  hotCM.on("change", () => applyPlayerDirective(1, hotCM));
+  applyPlayerDirective(0, coolCM);
+  applyPlayerDirective(1, hotCM);
 
   function downloadText(filename, text) {
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -1654,15 +1736,30 @@ class ChaserMatch {
   let currentMap = null;
   let customMapText = null;
 
-  {
+  function populateKyotoOptGroup() {
     const group = $("kyoto2025OptGroup");
-    for (const key of ["first", "second", "semifinal", "thirdplace", "final", "reserve"]) {
+    group.innerHTML = "";
+    for (const key of Object.keys(KYOTO_2025_MAPS)) {
       const opt = document.createElement("option");
       opt.value = "kyoto2025-" + key;
       opt.textContent = KYOTO_2025_MAPS[key].label.replace("2025年 京都大会 ", "");
       group.appendChild(opt);
     }
   }
+  populateKyotoOptGroup();
+
+  // map.json (index.htmlと同じ場所、maps/ フォルダから scripts/build-map-json.php で生成)
+  // があれば、埋め込み済みのマップをそちらの内容で上書きする。無い/読み込めない環境
+  // (file:// で直接開いた場合など)では埋め込み済みのマップがそのまま使われる。
+  fetch("map.json").then((r) => (r.ok ? r.json() : null)).then((data) => {
+    if (!data || typeof data !== "object") return;
+    const selected = $("mapSelect").value;
+    for (const key of Object.keys(data)) {
+      if (data[key] && typeof data[key].text === "string") KYOTO_2025_MAPS[key] = data[key];
+    }
+    populateKyotoOptGroup();
+    $("mapSelect").value = selected;
+  }).catch(() => {});
 
   function buildMap() {
     const choice = $("mapSelect").value;
