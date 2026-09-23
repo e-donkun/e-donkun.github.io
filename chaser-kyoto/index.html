@@ -98,11 +98,11 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 .stage-progress-pct{font-size:11px;white-space:nowrap;flex:0 0 auto;}
 .stage-winbanner{display:none;font-size:24px;font-weight:800;text-align:center;line-height:1.3;white-space:pre-line;}
 .stage-teams{display:flex;flex-direction:column;gap:16px;}
-.stage-team{border-top:1px solid #b8b895;padding-top:8px;}
-.stage-team .label{font-size:13px;color:#444;}
-.stage-team .row{font-size:16px;font-weight:700;display:flex;justify-content:space-between;gap:6px;}
-.stage-team.cool .row.name-row{color:#1a4fd6;}
-.stage-team.hot .row.name-row{color:#d61a1a;}
+.stage-team{border-top:1px dashed #7a7a55;padding-top:8px;}
+.stage-team .label{font-size:13px;font-weight:700;color:#444;}
+.stage-team.cool .label{color:var(--cool);}
+.stage-team.hot .label{color:var(--hot);}
+.stage-team .row{font-size:16px;font-weight:700;display:flex;justify-content:space-between;gap:6px;color:#1c1c1c;}
 /* On a narrow stage (portrait phones), .stage-side wraps below the board with lots of
    spare width going unused by its fixed 200px column -- so let it use that width and lay
    COOL/HOT side by side instead of stacked, matching the app's original layout. */
@@ -290,10 +290,11 @@ footer a{color:var(--muted);}
     <p>すべての行動関数は、9個の整数からなるリストを返します。並び順は次の通りです(自分から見た向き):</p>
     <table>
       <tr><td>左上</td><td>上</td><td>右上</td></tr>
-      <tr><td>左</td><td>(中央/常に0)</td><td>右</td></tr>
+      <tr><td>左</td><td>(中央/自分の位置)</td><td>右</td></tr>
       <tr><td>左下</td><td>下</td><td>右下</td></tr>
     </table>
     <p>値の意味: <b>0</b>=何もない　<b>1</b>=相手ターゲット　<b>2</b>=ブロック　<b>3</b>=アイテム</p>
+    <p>中央(自分の位置)は通常は常に<b>0</b>ですが、相手と同じマスに重なった場合は<b>1</b>になります。</p>
 
     <h3>await は必要?(実行モードについて)</h3>
     <p>画面右上のバッジで、今この端末がどちらのモードで動いているか確認できます。</p>
@@ -773,8 +774,9 @@ const STARTER_TEMPLATE = `# CHaser Kyoto - あなたのプログラムをここ�
 #   client.put_up()/down()/left()/right()     隣にブロックを置く(相手に置ければ勝ち!)
 #
 # 戻り値は9個の整数のリスト。並び順(自分から見て):
-#   [左上, 上, 右上, 左, (中央,常に0), 右, 左下, 下, 右下]
+#   [左上, 上, 右上, 左, (中央,自分の位置), 右, 左下, 下, 右下]
 # 値の意味: 0=何もない  1=相手  2=ブロック  3=アイテム
+# 中央(自分の位置)は通常は常に0ですが、相手と同じマスに重なった場合は1になります。
 #
 # 1ターンにつき、必ず get_ready() を1回 -> 行動を1回、の順で呼び出してください。
 
@@ -1352,12 +1354,14 @@ class ChaserMatch {
 
     this._clearWatchdog();
 
+    const scoreBefore = this.engine.score[team];
     let result;
     try {
       result = gotReady ? this.engine.getReady(team) : this.engine.applyAction(team, msg.action, msg.direction);
     } catch (e) {
       return this._protocolViolation(team, "不正な行動です: " + e.message);
     }
+    const pickedItem = !gotReady && this.engine.score[team] > scoreBefore;
 
     let lossCheck = null, roundEndCheck = null;
     if (!gotReady) {
@@ -1370,7 +1374,7 @@ class ChaserMatch {
 
     this._gate(() => {
       this._reply(team, msg.id, result);
-      this.onEvent({ type: "action", team, action: msg.action, direction: msg.direction, phase: expected, engine: this.engine });
+      this.onEvent({ type: "action", team, action: msg.action, direction: msg.direction, phase: expected, engine: this.engine, result, pickedItem, loss: lossCheck });
 
       if (lossCheck) { this._endGame(this.engine.other(lossCheck.loser), lossCheck.reason); return; }
       if (roundEndCheck) { this._endGame(roundEndCheck.winner, roundEndCheck.reason); return; }
@@ -1913,10 +1917,28 @@ class ChaserMatch {
     el.appendChild(span);
     el.scrollTop = el.scrollHeight;
   }
-  function clearConsoles() { $("coolConsole").innerHTML = ""; $("hotConsole").innerHTML = ""; $("log").innerHTML = ""; }
+  let lastStableRound = 0;
+  function clearConsoles() {
+    $("coolConsole").innerHTML = ""; $("hotConsole").innerHTML = ""; $("log").innerHTML = "";
+    lastStableRound = 0;
+  }
 
-  const ACTION_LABEL = { walk: "歩く", look: "見る", search: "サーチ", put: "置く" };
-  const DIR_LABEL = { up: "上", down: "下", left: "左", right: "右" };
+  // ---- Stable Log style match log (matches the original CHaser server's log format) -------
+  function stableLogTimestamp() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  }
+  const STABLE_ACTION_LABEL = { walk: "Walk", look: "Look", search: "Search", put: "Put" };
+  const STABLE_DIR_LABEL = { up: "Up", down: "Down", left: "Left", right: "Right" };
+  // Short cause used in the "[死因]" line of the Stable Log. Only reasons that come from one
+  // side's own demise get a cause line -- score/draw endings (turn limit reached) don't.
+  const STABLE_DEATH_LABEL = {
+    block: "ブロック下敷き", surrounded: "周囲封鎖",
+    protocol: "反則負け", crash: "プログラムエラー",
+    timeout: "応答なし", "program-ended": "プログラム終了",
+  };
+
   const REASON_LABEL = {
     block: "ブロックに乗って自滅した", surrounded: "周囲をブロックで囲まれて動けなくなった",
     score: "規定ラウンドに到達、アイテム数で判定", draw: "アイテム数が同数で引き分け",
@@ -1942,12 +1964,23 @@ class ChaserMatch {
     else if (ev.type === "action") {
       const teamName = ev.engine.teamName(ev.team);
       if (ev.phase === "ready") {
-        logRow(`R${Math.min(ev.engine.round, ev.engine.turnLimit)} ${teamName}: get_ready()`);
         const coords = highlightCoords(ev.engine, ev.team, "ready", null);
         renderState(ev.engine, { action: "ready", coords });
       } else {
-        const label = `${ACTION_LABEL[ev.action] || ev.action}(${DIR_LABEL[ev.direction] || ev.direction})`;
-        logRow(`R${Math.min(ev.engine.round, ev.engine.turnLimit)} ${teamName}: ${label}`);
+        if (ev.engine.round !== lastStableRound) {
+          lastStableRound = ev.engine.round;
+          logRow(`-----残${ev.engine.turnLimit - ev.engine.round + 1}ターン-----`);
+        }
+        const ts = stableLogTimestamp();
+        if (ev.loss) {
+          const loserName = ev.engine.teamName(ev.loss.loser);
+          logRow(`[${ts}][死因]${loserName}${STABLE_DEATH_LABEL[ev.loss.reason] || ev.loss.reason}`);
+        }
+        if (ev.pickedItem) logRow(`[${ts}][取得]${teamName}がアイテムを取得しました。`);
+        const label = `${STABLE_ACTION_LABEL[ev.action] || ev.action}${STABLE_DIR_LABEL[ev.direction] || ev.direction}`;
+        logRow(`[${ts}][行動]${teamName}が${label}を行いました。`);
+        const code = "1" + ev.result.join("");
+        logRow(`[${ts}]${teamName}:${code}`);
         const coords = highlightCoords(ev.engine, ev.team, ev.action, ev.direction);
         renderState(ev.engine, { action: ev.action, coords });
       }
@@ -1958,13 +1991,23 @@ class ChaserMatch {
       $("turnBox").style.display = "none";
       const banner = $("winBanner");
       banner.style.display = "block";
+      const endTs = stableLogTimestamp();
+      // block/surrounded deaths are already logged from the "action" event that caused them
+      // (matching the original tool's ordering, where the cause line precedes the move that
+      // triggered it); only the deaths detected outside of a move need a line here.
+      if (ev.winner != null && STABLE_DEATH_LABEL[ev.reason] && ev.reason !== "block" && ev.reason !== "surrounded") {
+        const loserName = ev.engine.teamName(ev.engine.other(ev.winner));
+        logRow(`[${endTs}][死因]${loserName}${STABLE_DEATH_LABEL[ev.reason]}`);
+      }
       if (ev.winner == null) {
         banner.textContent = `引き分け\n(${REASON_LABEL[ev.reason] || ev.reason})`;
-        logRow(`引き分け: ${REASON_LABEL[ev.reason] || ev.reason}`);
+        logRow("");
+        logRow(`[${endTs}][決着]引き分けです。`);
       } else {
         const name = ev.engine.teamName(ev.winner);
         banner.textContent = `${name} WIN!\n(${REASON_LABEL[ev.reason] || ev.reason})`;
-        logRow(`${name} の勝利: ${REASON_LABEL[ev.reason] || ev.reason}`, "win");
+        logRow("");
+        logRow(`[${endTs}][決着]${name}が勝利しました。`, "win");
       }
     }
   }
@@ -2019,6 +2062,7 @@ class ChaserMatch {
     renderState(match.engine);
 
     // 3) Now let real gameplay (and the TLE watchdog) begin.
+    logRow(`[${stableLogTimestamp()}]セットアップ完了　ゲームを開始します。`);
     match.begin();
     setRunning(true);
   }
