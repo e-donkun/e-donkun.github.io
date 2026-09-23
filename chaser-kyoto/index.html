@@ -1763,17 +1763,16 @@ class ChaserMatch {
 
   // ---- swap COOL/HOT: exchange the two players' programs and names as-is --------------------
   $("swapBtn").addEventListener("click", () => {
-    const coolCode = coolCM.getValue(), hotCode = hotCM.getValue();
-    coolCM.setValue(hotCode);
-    hotCM.setValue(coolCode);
-    const coolName = $("coolName").value;
-    $("coolName").value = $("hotName").value;
-    $("hotName").value = coolName;
-    try {
-      localStorage.setItem(LS_NAME_KEYS.cool, $("coolName").value);
-      localStorage.setItem(LS_NAME_KEYS.hot, $("hotName").value);
-    } catch (e) {}
-    refreshStageNames();
+    const cms = [coolCM, hotCM], nameEls = [$("coolName"), $("hotName")];
+    const state = [0, 1].map((t) => ({ code: cms[t].getValue(), name: nameEls[t].value, bot: botActive[t] }));
+    for (const t of [0, 1]) {
+      const src = state[1 - t];
+      botActive[t] = src.bot; // set before setValue() so a loaded bot's "change" event skips the #Player: directive
+      cms[t].setValue(src.code);
+      setPlayerName(t, src.name);
+      setBotUI(t, !!src.bot);
+      if (!src.bot) cms[t].refresh(); // fix line measurements if the editor was display:none
+    }
   });
 
   // ---- map handling ----------------------------------------------------------------------
