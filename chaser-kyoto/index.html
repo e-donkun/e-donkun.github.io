@@ -97,12 +97,13 @@ body.board-max #boardPanel{border-radius:0;border:none;min-height:100vh;}
 .cell .content,.cell .overlay,.cell .tok{position:absolute;inset:0;background-size:100% 100%;background-repeat:no-repeat;}
 .stage-side{flex:0 0 200px;background:#fdfccb;border-left:2px solid #2b2b2b;padding:14px 16px;display:flex;flex-direction:column;gap:16px;font-family:"Segoe UI","Hiragino Sans","Yu Gothic UI",sans-serif;}
 .stage-turnbox{text-align:center;}
-.stage-turnbox .label{font-size:22px;font-weight:700;}
+.stage-turnbox .label{font-size:18px;font-weight:700;white-space:nowrap;}
 .stage-progress-row{display:flex;align-items:center;gap:6px;margin-top:6px;}
 .stage-progress{position:relative;height:16px;border:1px solid #7a7a55;background:#e9e9c8;border-radius:2px;flex:1 1 auto;min-width:0;}
 .stage-progress-fill{height:100%;background:#3fbf3f;width:0%;border-radius:1px;}
 .stage-progress-pct{font-size:11px;white-space:nowrap;flex:0 0 auto;}
 .stage-winbanner{display:none;font-size:24px;font-weight:800;text-align:center;line-height:1.3;white-space:pre-line;}
+.stage-winbanner .sub{font-size:15px;font-weight:700;white-space:nowrap;}
 .stage-teams{display:flex;flex-direction:column;gap:16px;}
 .stage-team{border-top:1px solid #b8b895;padding-top:8px;}
 .stage-team .label{font-size:13px;font-weight:700;color:#444;}
@@ -215,7 +216,7 @@ footer a{color:var(--muted);}
       <div id="board-wrap"><div id="board"></div></div>
       <div class="stage-side">
         <div class="stage-turnbox" id="turnBox">
-          <div class="label"><span>Turn : </span><span id="turnNum">0</span></div>
+          <div class="label"><span>残りターン : </span><span id="turnNum">0</span></div>
           <div class="stage-progress-row">
             <div class="stage-progress"><div class="stage-progress-fill" id="progressFill"></div></div>
             <span class="stage-progress-pct" id="progressPct">0%</span>
@@ -225,18 +226,18 @@ footer a{color:var(--muted);}
         <div class="stage-teams">
           <div class="stage-team cool">
             <div class="label">Cool</div>
-            <div class="row name-row"><span>NAME :</span><span id="coolNameStage">01</span></div>
-            <div class="row"><span>SCORE :</span><span id="coolScoreStage">0</span></div>
+            <div class="row name-row"><span>NAME：</span><span id="coolNameStage">01</span></div>
+            <div class="row"><span>SCORE：</span><span id="coolScoreStage">0</span></div>
           </div>
           <div class="stage-team hot">
             <div class="label">Hot</div>
-            <div class="row name-row"><span>NAME :</span><span id="hotNameStage">02</span></div>
-            <div class="row"><span>SCORE :</span><span id="hotScoreStage">0</span></div>
+            <div class="row name-row"><span>NAME：</span><span id="hotNameStage">02</span></div>
+            <div class="row"><span>SCORE：</span><span id="hotScoreStage">0</span></div>
           </div>
         </div>
         <div class="stage-team">
           <div class="label">Server</div>
-          <div class="row" style="font-size:13px;"><span>残りアイテム数 :</span><span id="itemsLeftStage">0</span></div>
+          <div class="row" style="font-size:13px;"><span>残りアイテム数：</span><span id="itemsLeftStage">0</span></div>
         </div>
       </div>
     </div>
@@ -275,7 +276,7 @@ footer a{color:var(--muted);}
       <li>相手の上にブロック(×)を置く → 即勝利</li>
       <li>自分がすでに置かれているブロックの上に乗ってしまう → 即敗北</li>
       <li>上下左右をすべてブロックで囲まれて動けなくなる → 敗北</li>
-      <li>既定ラウンド数(マップごとに指定、既定は100)以内に決着がつかない場合は、アイテム獲得数が多い方の勝ち(同数なら引き分け)</li>
+      <li>既定ターン数(マップごとに指定、既定は100)以内に決着がつかない場合は、アイテム獲得数が多い方の勝ち(同数なら引き分け)</li>
     </ul>
 
     <h3>1ターンの流れ</h3>
@@ -481,7 +482,8 @@ footer a{color:var(--muted);}
     return lines.join("\n") + "\n";
   }
 
-  const TEAM_NAMES = ["Cool", "Hot"];
+  // log / result names, as GameSystem::TEAM_PROPERTY::getTeamName() spells them
+  const TEAM_NAMES = ["COOL", "HOT"];
 
   class GameEngine {
     constructor(map) {
@@ -1040,6 +1042,15 @@ _CMD_MAP = {
     "su": ("search", "up"), "sd": ("search", "down"), "sl": ("search", "left"), "sr": ("search", "right"),
     "pu": ("put", "up"), "pd": ("put", "down"), "pl": ("put", "left"), "pr": ("put", "right"),
 }
+# anything else is read like the official server's Method::fromString(): 1st char = action,
+# 2nd char = direction, "unknown" for either one it doesn't recognize (the server then stops it)
+_CMD_ACT = {"w": "walk", "l": "look", "s": "search", "p": "put"}
+_CMD_DIR = {"u": "up", "d": "down", "r": "right", "l": "left"}
+def _parse_cmd(s):
+    s = str(s)
+    if s in _CMD_MAP:
+        return _CMD_MAP[s]
+    return _CMD_ACT.get(s[0:1], "unknown"), _CMD_DIR.get(s[1:2], "unknown")
 
 class _Client:
     def __init__(self, *args, **kwargs):
@@ -1053,7 +1064,7 @@ ${methodSrc}
 
     ${asyncKw}def cmd(self, s="gr"):
         self.count += 1
-        action, direction = _CMD_MAP[s]
+        action, direction = _parse_cmd(s)
         return self._conv(${awaitKw}_native_call(action, direction))
 
     def close(self):
@@ -1281,6 +1292,7 @@ class ChaserMatch {
   begin() {
     if (this.started || this.finished) return;
     this.started = true;
+    this._logTurn();
     this._armWatchdog();
     const queued = this.pendingByTeam[this.current];
     if (queued) { this.pendingByTeam[this.current] = null; this._onCall(this.current, queued); }
@@ -1312,7 +1324,7 @@ class ChaserMatch {
     else if (msg.type === "crash" && !this.started) { settleWarmup(this.workers[team]); this._failCheck(team, msg.message, msg.line); }
     else if (msg.type === "finished" && !this.started) this._failCheck(team, "[エラー] プログラムが get_ready() を呼ぶ前に終了しました(while True: のループになっているか確認してください)", 0);
     else if (msg.type === "crash") { settleWarmup(this.workers[team]); this._crash(team, msg.message, msg.line); }
-    else if (msg.type === "finished") this._endGame(this.engine.other(team), "program-ended");
+    else if (msg.type === "finished") this._disconnect(team, "program-ended");
     else if (msg.type === "call") this._onCall(team, msg);
     else if (msg.type === "warm") settleWarmup(this.workers[team]); // claimed from the pool before its own warmup finished
     else if (msg.type === "ready") {
@@ -1345,8 +1357,15 @@ class ChaserMatch {
 
     const expected = this.phase;
     const gotReady = msg.action === "ready";
-    if (expected === "ready" && !gotReady) return this._protocolViolation(team, "get_ready() を呼ばずに行動しました");
-    if (expected === "action" && gotReady) return this._protocolViolation(team, "1ターンに2回 get_ready() を呼びました");
+    // a bad reply stops that side, logged with the official server's "[停止]" causes
+    if (expected === "ready" && !gotReady) return this._disconnect(team, "protocol", ["getready"]);
+    if (expected === "action" && gotReady) return this._disconnect(team, "protocol", ["double-getready"]);
+    if (!gotReady) {
+      const halts = [];
+      if (!["walk", "look", "search", "put"].includes(msg.action)) halts.push("bad-method");
+      if (!ChaserEngine.DIRS[msg.direction]) halts.push("bad-direction");
+      if (halts.length) return this._disconnect(team, "protocol", halts);
+    }
 
     this._clearWatchdog();
 
@@ -1355,32 +1374,34 @@ class ChaserMatch {
     try {
       result = gotReady ? this.engine.getReady(team) : this.engine.applyAction(team, msg.action, msg.direction);
     } catch (e) {
-      return this._protocolViolation(team, "不正な行動です: " + e.message);
+      return this._disconnect(team, "protocol", ["bad-method"]);
     }
     const pickedItem = !gotReady && this.engine.score[team] > scoreBefore;
 
-    let lossCheck = null, roundEndCheck = null;
-    if (!gotReady) {
-      lossCheck = this.engine.checkLossAfterMove(team);
-      if (!lossCheck && team === 1) {
-        const willEnd = this.engine.round + 1 > this.engine.turnLimit;
-        if (willEnd) roundEndCheck = this.engine.scoreResult();
-      }
-    }
+    const lossCheck = gotReady ? null : this.engine.checkLossAfterMove(team);
 
     this._gate(() => {
       this._reply(team, msg.id, result);
+      // the official server counts the remaining turns down right after HOT's action
+      if (!gotReady && team === 1) this.engine.round++;
       this.onEvent({ type: "action", team, action: msg.action, direction: msg.direction, phase: expected, engine: this.engine, result, pickedItem, loss: lossCheck });
 
       if (lossCheck) { this._endGame(this.engine.other(lossCheck.loser), lossCheck.reason); return; }
-      if (roundEndCheck) { this._endGame(roundEndCheck.winner, roundEndCheck.reason); return; }
 
       if (gotReady) {
         this.phase = "action";
       } else {
-        if (team === 1) this.engine.round++;
         this.current = this.engine.other(team);
         this.phase = "ready";
+        if (team === 1) {
+          this._logTurn();
+          // out of turns: judged on items (the official Judge() does this once TimeBar is 0)
+          if (this.engine.round > this.engine.turnLimit) {
+            const r = this.engine.scoreResult();
+            this._endGame(r.winner, r.reason);
+            return;
+          }
+        }
       }
 
       const queued = this.pendingByTeam[this.current];
@@ -1434,29 +1455,39 @@ class ChaserMatch {
     this._clearWatchdog();
     const team = this.current;
     this._watchdog = setTimeout(() => {
-      this._endGame(this.engine.other(team), "timeout");
+      this._disconnect(team, "timeout");
     }, this.timeoutMs);
   }
   _clearWatchdog() { if (this._watchdog) { clearTimeout(this._watchdog); this._watchdog = null; } }
 
-  _protocolViolation(team, text) {
-    this.onEvent({ type: "log", text: `[反則] ${this.engine.teamName(team)}: ${text}` });
-    this._endGame(this.engine.other(team), "protocol");
+  // "-----残Nターン-----": the official server logs it as COOL's GetReady step starts
+  _logTurn() {
+    this.onEvent({ type: "turn", remaining: Math.max(0, this.engine.turnLimit - this.engine.round + 1) });
+  }
+  // The official server treats every broken exchange -- a wrong reply, no reply in time, the
+  // client going away -- as a disconnect: a wrong reply is logged as "[停止]..." (halts), and
+  // Judge() then makes that side lose. Without explicit halts, a side that fails while the
+  // server is waiting for its GetReady gets the "didn't return GetReady" stop line.
+  _disconnect(team, reason, halts) {
+    if (this.finished) return;
+    if (!halts) halts = team === this.current && this.phase === "ready" ? ["getready"] : [];
+    for (const cause of halts) this.onEvent({ type: "halt", team, cause, engine: this.engine });
+    this._endGame(this.engine.other(team), reason, team);
   }
   _crash(team, message, line) {
     if (this.finished) return;
     this.onEvent({ type: "stderr", team, text: message, line });
-    this._endGame(this.engine.other(team), "crash");
+    this._disconnect(team, "crash");
   }
 
-  _endGame(winner, reason) {
+  _endGame(winner, reason, disconnected = null) {
     if (this.finished) return;
     this.finished = true;
     this._clearWatchdog();
     clearTimeout(this._gateTimer);
     for (const w of this.workers) if (w) w.terminate();
     this._resolveLoadedWaiters();
-    this.onEvent({ type: "end", winner, reason, engine: this.engine });
+    this.onEvent({ type: "end", winner, reason, disconnected, engine: this.engine });
   }
 
   destroy() {
@@ -1542,15 +1573,10 @@ class ChaserMatch {
   const LS_NAME_KEYS = { cool: "chaser-kyoto:name:cool", hot: "chaser-kyoto:name:hot" };
   try { $("coolName").value = localStorage.getItem(LS_NAME_KEYS.cool) || ""; } catch (e) {}
   try { $("hotName").value = localStorage.getItem(LS_NAME_KEYS.hot) || ""; } catch (e) {}
-  const fallbackName = [null, null]; // random "Cool-xxxx"/"Hot-xxxx" used while the name field is blank
-  function randomHex4() { return Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0"); }
-  function resetFallbackNames() { fallbackName[0] = null; fallbackName[1] = null; }
+  // a blank name shows as "Cool"/"Hot", same as the official server's name labels
   function playerName(team) {
     const el = team === 0 ? $("coolName") : $("hotName");
-    const v = el.value.trim();
-    if (v) return v;
-    if (!fallbackName[team]) fallbackName[team] = (team === 0 ? "Cool" : "Hot") + "-" + randomHex4();
-    return fallbackName[team];
+    return el.value.trim() || (team === 0 ? "Cool" : "Hot");
   }
   function refreshStageNames() {
     $("coolNameStage").textContent = playerName(0);
@@ -1936,7 +1962,7 @@ class ChaserMatch {
     }
     $("coolScoreStage").textContent = engine.score[0];
     $("hotScoreStage").textContent = engine.score[1];
-    // matches the official client: "Turn" counts DOWN remaining turns, bar drains with it.
+    // matches the official server: "残りターン" counts DOWN remaining turns, bar drains with it.
     const remaining = Math.max(0, engine.turnLimit - engine.round + 1);
     $("turnNum").textContent = remaining;
     const pct = engine.turnLimit ? Math.round((remaining / engine.turnLimit) * 100) : 0;
@@ -2095,10 +2121,8 @@ class ChaserMatch {
     el.appendChild(span);
     el.scrollTop = el.scrollHeight;
   }
-  let lastStableRound = 0;
   function clearConsoles() {
     $("coolConsole").innerHTML = ""; $("hotConsole").innerHTML = ""; $("log").innerHTML = "";
-    lastStableRound = 0;
   }
 
   // ---- Stable Log style match log (matches the original CHaser server's log format) -------
@@ -2109,20 +2133,30 @@ class ChaserMatch {
   }
   const STABLE_ACTION_LABEL = { walk: "Walk", look: "Look", search: "Search", put: "Put" };
   const STABLE_DIR_LABEL = { up: "Up", down: "Down", left: "Left", right: "Right" };
-  // Short cause used in the "[死因]" line of the Stable Log. Only reasons that come from one
-  // side's own demise get a cause line -- score/draw endings (turn limit reached) don't.
-  const STABLE_DEATH_LABEL = {
-    block: "ブロック下敷き", surrounded: "周囲封鎖",
-    protocol: "反則負け", crash: "プログラムエラー",
-    timeout: "応答なし", "program-ended": "プログラム終了",
+  // "[死因]" causes from the board (MainWindow::Judge). Every other loss -- a wrong reply,
+  // timeout, crash or the program ending -- is a disconnect there, logged as "通信切断".
+  const STABLE_DEATH_LABEL = { block: "ブロック下敷き", surrounded: "ブロック囲まれ" };
+  // "[停止]" lines (MainWindow::StepGame), including the official half/full-width "!"/"！"
+  const STABLE_HALT_LABEL = {
+    getready: "が正常にGetReadyを返しませんでした!",
+    "double-getready": "が二度GetReadyを行いました!",
+    "bad-method": "が不正なメソッドを呼んでいます！",
+    "bad-direction": "の行動メソッドが不正な方向を示しています！",
   };
 
-  const REASON_LABEL = {
-    block: "ブロックに乗って自滅した", surrounded: "周囲をブロックで囲まれて動けなくなった",
-    score: "規定ラウンドに到達、アイテム数で判定", draw: "アイテム数が同数で引き分け",
-    protocol: "反則行為があった", crash: "プログラムがエラーで停止した",
-    timeout: "制限時間内に応答がなかった(思考時間切れ)", "program-ended": "プログラムの実行が終了した(行動しなくなった)",
-  };
+  // log header written before the match starts (MainWindow::MainWindow), map included
+  function logStableHeader(map) {
+    const ts = stableLogTimestamp();
+    logRow("--Stable Log--");
+    logRow("[ Music : None ]");
+    logRow(`[ Cool Player : Name = ${playerName(0)} , IP = ローカル ]`);
+    logRow(`[ Hot  Player : Name = ${playerName(1)} , IP = ローカル ]`);
+    logRow("[ Map : ");
+    // Map::Export() is handed the log file's path, so its "N:" line is the log file name
+    const text = ChaserEngine.mapToText({ ...map, name: `log[${ts}].txt` });
+    for (const line of text.replace(/\n$/, "").split("\n")) logRow(line);
+    logRow("]");
+  }
 
   // ---- match control ----------------------------------------------------------------------
   let match = null;
@@ -2166,26 +2200,26 @@ class ChaserMatch {
       // otherwise startMatch does it once both programs have been checked
       if (match && match.loaded) abortForCheckError();
     }
-    else if (ev.type === "log") logRow(ev.text);
+    else if (ev.type === "turn") logRow(`-----残${ev.remaining}ターン-----`);
+    else if (ev.type === "halt") logRow(`[${stableLogTimestamp()}][停止]${ev.engine.teamName(ev.team)}${STABLE_HALT_LABEL[ev.cause]}`);
     else if (ev.type === "action") {
       const teamName = ev.engine.teamName(ev.team);
       if (ev.phase === "ready") {
         const coords = highlightCoords(ev.engine, ev.team, "ready", null);
         renderState(ev.engine, { action: "ready", coords });
       } else {
-        if (ev.engine.round !== lastStableRound) {
-          lastStableRound = ev.engine.round;
-          logRow(`-----残${ev.engine.turnLimit - ev.engine.round + 1}ターン-----`);
-        }
+        // same order as the official StepGame: RefreshItem ([取得]) -> Judge ([死因]) -> [行動]
         const ts = stableLogTimestamp();
+        if (ev.pickedItem) logRow(`[${ts}][取得]${teamName}がアイテムを取得しました。`);
         if (ev.loss) {
           const loserName = ev.engine.teamName(ev.loss.loser);
           logRow(`[${ts}][死因]${loserName}${STABLE_DEATH_LABEL[ev.loss.reason] || ev.loss.reason}`);
         }
-        if (ev.pickedItem) logRow(`[${ts}][取得]${teamName}がアイテムを取得しました。`);
         const label = `${STABLE_ACTION_LABEL[ev.action] || ev.action}${STABLE_DIR_LABEL[ev.direction] || ev.direction}`;
         logRow(`[${ts}][行動]${teamName}が${label}を行いました。`);
-        const code = "1" + ev.result.join("");
+        // the 9 cells around the mover's own position after the action (not the action's
+        // look/search result), as the official server logs it
+        const code = "1" + ev.engine.around(ev.engine.pos[ev.team], ev.team).join("");
         logRow(`[${ts}]${teamName}:${code}`);
         const coords = highlightCoords(ev.engine, ev.team, ev.action, ev.direction);
         renderState(ev.engine, { action: ev.action, coords });
@@ -2198,25 +2232,32 @@ class ChaserMatch {
       consoleWrite(0, "[対戦終了: プログラムを停止しました]");
       consoleWrite(1, "[対戦終了: プログラムを停止しました]");
       playFanfare();
-      $("turnBox").style.display = "none";
+      // the remaining-turn box stays up, with the result shown below it (as in MainWindow)
       const banner = $("winBanner");
       banner.style.display = "block";
       const endTs = stableLogTimestamp();
-      // block/surrounded deaths are already logged from the "action" event that caused them
-      // (matching the original tool's ordering, where the cause line precedes the move that
-      // triggered it); only the deaths detected outside of a move need a line here.
-      if (ev.winner != null && STABLE_DEATH_LABEL[ev.reason] && ev.reason !== "block" && ev.reason !== "surrounded") {
-        const loserName = ev.engine.teamName(ev.engine.other(ev.winner));
-        logRow(`[${endTs}][死因]${loserName}${STABLE_DEATH_LABEL[ev.reason]}`);
+      // block/surrounded deaths were logged by the "action" event that caused them
+      const lost = ev.disconnected != null ? ev.engine.teamName(ev.disconnected) : null;
+      if (lost) logRow(`[${endTs}][死因]${lost}通信切断`);
+      if (ev.reason === "score" || ev.reason === "draw") {
+        logRow(`[${endTs}][情報]相打ちまたは、タイムアップのためアイテム判定を行います`);
+        logRow(`[${endTs}][得点]` + [0, 1].map((t) => `${ev.engine.teamName(t)}:${ev.engine.score[t]}  `).join(""));
       }
+      // MainWindow::Finish()
+      if (lost) logRow(`[${endTs}][終了]${lost}との通信が切断されています。`);
+      logRow(""); // Finish() logs the result label before setting it, i.e. an empty line
       if (ev.winner == null) {
-        banner.textContent = `引き分け\n(${REASON_LABEL[ev.reason] || ev.reason})`;
-        logRow("");
+        banner.textContent = "DRAW";
         logRow(`[${endTs}][決着]引き分けです。`);
       } else {
         const name = ev.engine.teamName(ev.winner);
-        banner.textContent = `${name} WIN!\n(${REASON_LABEL[ev.reason] || ev.reason})`;
-        logRow("");
+        banner.textContent = `${name} WIN!`;
+        if (lost) {
+          const sub = document.createElement("div");
+          sub.className = "sub";
+          sub.textContent = `[${lost} 切断により]`;
+          banner.appendChild(sub);
+        }
         logRow(`[${endTs}][決着]${name}が勝利しました。`, "win");
       }
     }
@@ -2281,7 +2322,6 @@ class ChaserMatch {
     clearConsoles();
     clearErrorMarks();
     resetStageChrome();
-    resetFallbackNames();
     refreshStageNames();
     currentMap = buildMap();
     renderBoardSkeleton(currentMap);
@@ -2310,6 +2350,7 @@ class ChaserMatch {
     renderState(match.engine);
 
     // 3) Now let real gameplay (and the TLE watchdog) begin.
+    logStableHeader(currentMap);
     logRow(`[${stableLogTimestamp()}]セットアップ完了　ゲームを開始します。`);
     if (mode === "paused") {
       // paused during loading/countdown (or started via 1ステップ): begin without running on
