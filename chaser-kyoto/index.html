@@ -453,6 +453,9 @@ footer a{color:var(--muted);}
     return { name: name || "[RANDOM MAP]", turn, width, height, grid, start: [coolStart, hotStart] };
   }
 
+  // The board size comes from the D: rows, as the official Map::Import() does (it never reads
+  // S:). S: is only a fallback for a file without any D: rows. Short rows are padded with
+  // empty cells so the grid is always rectangular.
   function parseMapText(text) {
     const lines = text.split(/\r\n|\n|\r/);
     let name = "[MAP]", turn = 100, width = null, height = null;
@@ -469,8 +472,15 @@ footer a{color:var(--muted);}
       else if (tag === "C") { const [x, y] = rest.split(",").map((v) => parseInt(v, 10)); start[0] = { x, y }; }
       else if (tag === "H") { const [x, y] = rest.split(",").map((v) => parseInt(v, 10)); start[1] = { x, y }; }
     }
-    if (width == null) width = rows.length ? rows[0].length : 15;
-    if (height == null) height = rows.length || 17;
+    if (rows.length) {
+      width = Math.max(...rows.map((r) => r.length));
+      height = rows.length;
+      for (const r of rows) while (r.length < width) r.push(NOTHING);
+    } else {
+      if (!(width > 0)) width = 15;
+      if (!(height > 0)) height = 17;
+      for (let y = 0; y < height; y++) rows.push(new Array(width).fill(NOTHING));
+    }
     if (!start[0]) start[0] = { x: 1, y: 1 };
     if (!start[1]) start[1] = { x: width - 2, y: height - 2 };
     return { name, turn, width, height, grid: rows, start };
