@@ -121,8 +121,7 @@ body.board-max #boardPanel{border-radius:0;border:none;min-height:100vh;}
 #log[hidden]{display:none;}
 #log .row.win{color:#1e7a34;font-weight:700;}
 #log .row.lose{color:#b3261e;font-weight:700;}
-.log-toggle{align-self:flex-start;}
-.speed-value{font-variant-numeric:tabular-nums;min-width:4.5em;}
+.speed-value{font-variant-numeric:tabular-nums;min-width:3.5em;}
 dialog{border:none;border-radius:12px;padding:0;max-width:640px;width:92vw;color:var(--text);background:var(--panel);}
 dialog::backdrop{background:rgba(0,0,0,.45);}
 .dialog-body{padding:18px 22px;max-height:80vh;overflow:auto;font-size:14px;line-height:1.7;}
@@ -205,7 +204,6 @@ footer a{color:var(--muted);}
       <label class="btn" id="mapUploadLabel" style="padding:6px 10px;">マップ読込
         <input type="file" id="mapUpload" accept=".map,.txt,text/plain" style="display:none;">
       </label>
-      <button id="mapDownload">マップ保存</button>
     </div>
 
     <div class="stage" id="stage">
@@ -248,12 +246,12 @@ footer a{color:var(--muted);}
       <button id="resetBtn">↻ リセット</button>
       <button id="swapBtn" title="COOL と HOT のプログラム(とプレイヤー名)をそのまま入れ替えます">⇔ Cool・Hot入れ替え</button>
       <label>速さ
-        <input type="range" id="speedRange" min="0" max="900" value="250" step="10">
+        <input type="range" id="speedRange" min="0" max="600" value="300" step="10">
         <span class="speed-value" id="speedValue"></span>
       </label>
+      <button type="button" id="logToggle" aria-controls="log" aria-expanded="false">対戦ログ▼</button>
     </div>
 
-    <button type="button" id="logToggle" class="log-toggle" aria-controls="log" aria-expanded="false">対戦ログ▼</button>
     <div id="log" hidden></div>
   </section>
 </main>
@@ -1853,10 +1851,6 @@ class ChaserMatch {
     await loadMapFile($("mapUpload").files[0]);
     $("mapUpload").value = "";
   });
-  $("mapDownload").addEventListener("click", () => {
-    const map = currentMap || buildMap();
-    downloadText((map.name || "map").replace(/[^\w\-]+/g, "_") + ".map", ChaserEngine.mapToText(map));
-  });
   $("mapSelect").addEventListener("change", () => {
     currentMap = buildMap();
     renderBoardSkeleton(currentMap);
@@ -1980,8 +1974,10 @@ class ChaserMatch {
     return order;
   }
 
-  function playStartAnimation(map) {
+  // token: stop (and resolve) early once runToken moves on, i.e. reset was pressed mid-animation
+  function playStartAnimation(map, token) {
     return new Promise((resolve) => {
+      const cancelled = () => token != null && token !== runToken;
       for (const row of cellEls) for (const cell of row) {
         cell.dataset.revealed = "0";
         cell.style.backgroundImage = "";
@@ -1993,6 +1989,7 @@ class ChaserMatch {
       const perTick = Math.max(8, totalMs / (order.length / 2));
       let i = 0;
       const tick = () => {
+        if (cancelled()) { resolve(); return; }
         for (let k = 0; k < 2 && i < order.length; k++, i++) {
           const { x, y } = order[i];
           const cell = cellEls[y][x];
@@ -2003,7 +2000,7 @@ class ChaserMatch {
           cell.querySelector(".content").style.backgroundImage = sprite ? `url(${sprite})` : "";
         }
         if (i >= order.length) {
-          showTeamToken(0, map, () => showTeamToken(1, map, resolve));
+          showTeamToken(0, map, () => (cancelled() ? resolve() : showTeamToken(1, map, resolve)));
         } else {
           setTimeout(tick, perTick);
         }
@@ -2025,7 +2022,13 @@ class ChaserMatch {
   // C#5 (554.37Hz) for "0" -- a simple sine oscillator through a short attack/release
   // envelope, the way a single-oscillator synth patch (sine wave, no filter/effects)
   // would play it.
+  let countdownOscs = [];
+  function stopCountdown() {
+    for (const osc of countdownOscs) { try { osc.stop(); } catch (e) {} }
+    countdownOscs = [];
+  }
   function playCountdown() {
+    stopCountdown();
     if (!isSoundEnabled()) return;
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -2043,6 +2046,7 @@ class ChaserMatch {
         osc.connect(gain).connect(ctx.destination);
         osc.start(time);
         osc.stop(time + dur + 0.05);
+        countdownOscs.push(osc);
       };
       const now = ctx.currentTime + 0.05;
       beep(now, CS4, 0.36);
@@ -2115,9 +2119,10 @@ class ChaserMatch {
 
   // Button states follow issue #4's diagram:
   //   idle      (対戦開始前)   : ▶対戦開始 / 1ステップ / リセット / 入れ替え  all enabled
-  //   preparing (読込/演出中) : everything disabled
+  //   preparing (読込/カウントダウン中) : ⏸一時停止 / リセット
   //   running   (対戦実行時)   : ⏸一時停止 only
   //   paused    (一時停止時)   : ▶対戦再開 / 1ステップ / リセット  (入れ替え disabled)
+  //             (pausing during preparing lets the countdown finish, then the match begins paused)
   //   finished  (決着後)       : リセット only -- a new match can't start until reset
   // Map controls are only usable while idle, since changing the map redraws the board.
   let mode = "idle";
@@ -2129,9 +2134,9 @@ class ChaserMatch {
     const pausing = m === "running" || m === "preparing";
     main.classList.toggle("primary", !pausing);
     main.classList.toggle("pausing", pausing);
-    main.disabled = m === "preparing" || m === "finished";
+    main.disabled = m === "finished";
     $("stepBtn").disabled = !(m === "idle" || m === "paused");
-    $("resetBtn").disabled = !(m === "idle" || m === "paused" || m === "finished");
+    $("resetBtn").disabled = m === "running";
     $("swapBtn").disabled = m !== "idle";
     const mapLocked = m !== "idle";
     $("mapSelect").disabled = mapLocked;
@@ -2214,7 +2219,7 @@ class ChaserMatch {
 
   async function startMatch(startPaused) {
     const myToken = ++runToken;
-    setMode("preparing");
+    setMode(startPaused ? "paused" : "preparing");
     if (match) match.destroy();
     clearConsoles();
     resetStageChrome();
@@ -2225,14 +2230,14 @@ class ChaserMatch {
 
     // 1) Load Pyodide in both workers first, with a spinner -- no countdown/animation yet.
     setLoading(true, "Pyodide を読み込み中…");
-    const speed = 900 - parseInt($("speedRange").value, 10);
     match = new ChaserMatch({
       map: currentMap,
       coolCode: coolCM.getValue(),
       hotCode: hotCM.getValue(),
-      speedMs: speed,
+      speedMs: speedMs(),
       onEvent: onMatchEvent,
     });
+    if (startPaused) match.step(); // 「1ステップすすむ」from idle: queue exactly one action
     await match.whenLoaded();
     if (myToken !== runToken) return; // superseded by a reset or another run while we were loading
     setLoading(false);
@@ -2240,19 +2245,17 @@ class ChaserMatch {
 
     // 2) Only once loading is actually done: countdown sound + board reveal animation.
     playCountdown();
-    await playStartAnimation(currentMap);
+    await playStartAnimation(currentMap, myToken);
     if (myToken !== runToken) return; // superseded by a reset or another run while we were animating
     if (match.finished) { setMode("finished"); return; }
     renderState(match.engine);
 
     // 3) Now let real gameplay (and the TLE watchdog) begin.
     logRow(`[${stableLogTimestamp()}]セットアップ完了　ゲームを開始します。`);
-    if (startPaused) {
-      // 「1ステップすすむ」from idle: start the match paused and advance just one action
+    if (mode === "paused") {
+      // paused during loading/countdown (or started via 1ステップ): begin without running on
       match.pause();
       match.begin();
-      setMode("paused");
-      match.step();
     } else {
       match.begin();
       setMode("running");
@@ -2261,8 +2264,10 @@ class ChaserMatch {
 
   $("runBtn").addEventListener("click", () => {
     if (mode === "idle") startMatch(false);
-    else if (mode === "running" && match) { match.pause(); setMode("paused"); }
-    else if (mode === "paused" && match) { match.resume(); setMode("running"); }
+    else if (!match) return;
+    else if (mode === "running" || mode === "preparing") { match.pause(); setMode("paused"); }
+    else if (mode === "paused" && !match.started) { match.resume(); setMode("preparing"); } // still counting down
+    else if (mode === "paused") { match.resume(); setMode("running"); }
   });
   $("stepBtn").addEventListener("click", () => {
     if (mode === "idle") startMatch(true);
@@ -2270,6 +2275,7 @@ class ChaserMatch {
   });
   $("resetBtn").addEventListener("click", () => {
     runToken++;
+    stopCountdown();
     if (match) { match.destroy(); match = null; }
     clearConsoles();
     resetStageChrome();
@@ -2277,11 +2283,13 @@ class ChaserMatch {
     renderState(new ChaserEngine.GameEngine(currentMap));
     setMode("idle");
   });
-  function updateSpeedLabel() { $("speedValue").textContent = (900 - parseInt($("speedRange").value, 10)) + "ms/手"; }
+  // slider right = faster; the value shown is the wait per action (0-600ms)
+  function speedMs() { return 600 - parseInt($("speedRange").value, 10); }
+  function updateSpeedLabel() { $("speedValue").textContent = speedMs() + "ms"; }
   updateSpeedLabel();
   $("speedRange").addEventListener("input", () => {
     updateSpeedLabel();
-    if (match) match.setSpeed(900 - parseInt($("speedRange").value, 10));
+    if (match) match.setSpeed(speedMs());
   });
 })();
 </script>
