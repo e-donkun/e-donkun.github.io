@@ -79,7 +79,10 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 .stage{position:relative;display:flex;flex-wrap:wrap;gap:0;background:#fdfccb;border:2px solid #2b2b2b;border-radius:4px;overflow:hidden;color:#161616;container-type:inline-size;}
 .stage.dragover{outline:3px dashed #3fa9f5;outline-offset:-3px;}
 #boardPanel{position:relative;}
-#boardPanel:fullscreen{width:100vw;height:100vh;overflow:auto;background:var(--panel);}
+/* in-page maximize: hide the editor side (and header/footer) and let the board panel fill the window */
+body.board-max header, body.board-max footer, body.board-max .layout > .panel:not(#boardPanel){display:none;}
+body.board-max .layout{grid-template-columns:1fr;max-width:none;min-height:100vh;padding:0;}
+body.board-max #boardPanel{border-radius:0;border:none;min-height:100vh;}
 .panel-fullscreen-btn{position:absolute;top:10px;right:10px;z-index:6;width:30px;height:30px;padding:0;border-radius:6px;cursor:pointer;}
 .stage-loading{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(253,252,203,.94);color:#161616;font-size:14px;font-weight:600;text-align:center;}
 .stage-loading.show{display:flex;}
@@ -87,7 +90,7 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 @keyframes stage-spin{to{transform:rotate(360deg);}}
 #board-wrap{overflow:auto;padding:10px;background:#fdfccb;flex:1 1 auto;}
 #board{display:grid;gap:0;width:max-content;}
-.cell{position:relative;width:26px;height:26px;background-size:100% 100%;background-repeat:no-repeat;background-color:#ffffff;}
+.cell{position:relative;width:var(--cell,26px);height:var(--cell,26px);background-size:100% 100%;background-repeat:no-repeat;background-color:#ffffff;}
 .cell .content,.cell .overlay,.cell .tok{position:absolute;inset:0;background-size:100% 100%;background-repeat:no-repeat;}
 .stage-side{flex:0 0 200px;background:#fdfccb;border-left:2px solid #2b2b2b;padding:14px 16px;display:flex;flex-direction:column;gap:16px;font-family:"Segoe UI","Hiragino Sans","Yu Gothic UI",sans-serif;}
 .stage-turnbox{text-align:center;}
@@ -111,10 +114,13 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
   .stage-teams{flex-direction:row;gap:12px;}
   .stage-teams .stage-team{flex:1 1 0;min-width:0;}
 }
-#log{height:150px;overflow:auto;font-size:12px;background:var(--console-bg);color:var(--console-text);border-radius:8px;padding:8px 10px;}
-#log .row{opacity:.9;}
-#log .row.win{color:#5fd587;font-weight:700;}
-#log .row.lose{color:#ff6b60;font-weight:700;}
+/* match log: white background / black text regardless of theme, to set it apart from the dark consoles */
+#log{height:150px;overflow:auto;font-size:12px;background:#ffffff;color:#000000;border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+#log[hidden]{display:none;}
+#log .row.win{color:#1e7a34;font-weight:700;}
+#log .row.lose{color:#b3261e;font-weight:700;}
+.log-toggle{align-self:flex-start;}
+.speed-value{font-variant-numeric:tabular-nums;min-width:4.5em;}
 dialog{border:none;border-radius:12px;padding:0;max-width:640px;width:92vw;color:var(--text);background:var(--panel);}
 dialog::backdrop{background:rgba(0,0,0,.45);}
 .dialog-body{padding:18px 22px;max-height:80vh;overflow:auto;font-size:14px;line-height:1.7;}
@@ -186,7 +192,7 @@ footer a{color:var(--muted);}
   </section>
 
   <section class="panel" id="boardPanel">
-    <button type="button" id="panelFullscreenBtn" class="panel-fullscreen-btn" title="全画面表示">⛶</button>
+    <button type="button" id="panelFullscreenBtn" class="panel-fullscreen-btn" title="ゲーム画面を最大化">⛶</button>
     <div class="controls-row">
       <select id="mapSelect">
         <option value="random">ランダムマップ</option>
@@ -237,15 +243,17 @@ footer a{color:var(--muted);}
     <div class="controls-row">
       <button id="runBtn" class="primary">▶ 対戦開始</button>
       <button id="pauseBtn" disabled>⏸ 一時停止</button>
-      <button id="stepBtn" disabled>⏭ 1手だけ進める</button>
+      <button id="stepBtn" disabled>⏭ 1ステップすすめる</button>
       <button id="resetBtn">■ リセット</button>
+      <button id="swapBtn" title="COOL と HOT のプログラム(とプレイヤー名)をそのまま入れ替えます">⇔ Cool・Hot入れ替え</button>
       <label>速さ
         <input type="range" id="speedRange" min="0" max="900" value="250" step="10">
+        <span class="speed-value" id="speedValue"></span>
       </label>
     </div>
 
-    <h2>対戦ログ</h2>
-    <div id="log"></div>
+    <button type="button" id="logToggle" class="log-toggle" aria-controls="log" aria-expanded="false">対戦ログ▼</button>
+    <div id="log" hidden></div>
   </section>
 </main>
 
@@ -1711,26 +1719,62 @@ class ChaserMatch {
   $("openHelp").addEventListener("click", () => $("helpDialog").showModal());
   $("closeHelp").addEventListener("click", () => $("helpDialog").close());
 
-  // ---- board panel fullscreen toggle (map controls + board + match controls + log) -------
-  const boardPanelEl = $("boardPanel");
-  const requestFs = boardPanelEl.requestFullscreen || boardPanelEl.webkitRequestFullscreen || boardPanelEl.msRequestFullscreen;
-  const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
-  $("panelFullscreenBtn").addEventListener("click", () => {
-    if (document.fullscreenElement || document.webkitFullscreenElement) {
-      if (exitFs) exitFs.call(document);
-    } else if (requestFs) {
-      const p = requestFs.call(boardPanelEl);
-      if (p && p.catch) p.catch(() => {});
-    }
-  });
-  function onFullscreenChange() {
-    const active = (document.fullscreenElement || document.webkitFullscreenElement) === boardPanelEl;
+  // ---- board panel maximize toggle: fills the browser window (not the OS fullscreen) ------
+  function setBoardMaximized(on) {
+    document.body.classList.toggle("board-max", on);
     const btn = $("panelFullscreenBtn");
-    btn.textContent = active ? "⤢" : "⛶";
-    btn.title = active ? "全画面表示を終了" : "全画面表示";
+    btn.textContent = on ? "⤢" : "⛶";
+    btn.title = on ? "最大化を解除" : "ゲーム画面を最大化";
+    window.scrollTo(0, 0);
+    fitBoardToWindow();
   }
-  document.addEventListener("fullscreenchange", onFullscreenChange);
-  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
+  // While maximized, grow the board's cells so the whole panel fits the window.
+  function fitBoardToWindow() {
+    const board = $("board");
+    board.style.removeProperty("--cell");
+    if (!document.body.classList.contains("board-max") || !currentMap) return;
+    const wrap = $("board-wrap"), side = document.querySelector(".stage-side");
+    const sideBeside = side.offsetTop === wrap.offsetTop;
+    const wrapPad = 20; // #board-wrap padding (10px each side)
+    const availW = $("stage").clientWidth - (sideBeside ? side.offsetWidth : 0) - wrapPad;
+    // height of everything in the panel other than the board (panel has min-height:100vh, so measure its children)
+    const panel = $("boardPanel");
+    const contentBottom = Math.max(...[...panel.children].map((el) => el.getBoundingClientRect().bottom));
+    const extraH = contentBottom - panel.getBoundingClientRect().top + 12 /* panel bottom padding */ - board.offsetHeight;
+    const availH = window.innerHeight - extraH;
+    const cell = Math.floor(Math.min(availW / currentMap.width, availH / currentMap.height));
+    if (cell > CELL_PX) board.style.setProperty("--cell", cell + "px");
+  }
+  window.addEventListener("resize", fitBoardToWindow);
+  $("panelFullscreenBtn").addEventListener("click", () => setBoardMaximized(!document.body.classList.contains("board-max")));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("board-max") && !$("helpDialog").open) setBoardMaximized(false);
+  });
+
+  // ---- match log show/hide toggle ----------------------------------------------------------
+  $("logToggle").addEventListener("click", () => {
+    const log = $("log");
+    log.hidden = !log.hidden;
+    $("logToggle").textContent = log.hidden ? "対戦ログ▼" : "対戦ログ▲";
+    $("logToggle").setAttribute("aria-expanded", String(!log.hidden));
+    if (!log.hidden) log.scrollTop = log.scrollHeight;
+    fitBoardToWindow();
+  });
+
+  // ---- swap COOL/HOT: exchange the two players' programs and names as-is --------------------
+  $("swapBtn").addEventListener("click", () => {
+    const coolCode = coolCM.getValue(), hotCode = hotCM.getValue();
+    coolCM.setValue(hotCode);
+    hotCM.setValue(coolCode);
+    const coolName = $("coolName").value;
+    $("coolName").value = $("hotName").value;
+    $("hotName").value = coolName;
+    try {
+      localStorage.setItem(LS_NAME_KEYS.cool, $("coolName").value);
+      localStorage.setItem(LS_NAME_KEYS.hot, $("hotName").value);
+    } catch (e) {}
+    refreshStageNames();
+  });
 
   // ---- map handling ----------------------------------------------------------------------
   let currentMap = null;
@@ -1805,7 +1849,7 @@ class ChaserMatch {
   const CELL_PX = 26;
 
   function renderBoardSkeleton(map) {
-    boardEl.style.gridTemplateColumns = `repeat(${map.width}, ${CELL_PX}px)`;
+    boardEl.style.gridTemplateColumns = `repeat(${map.width}, var(--cell, ${CELL_PX}px))`;
     boardEl.innerHTML = "";
     cellEls = [];
     for (let y = 0; y < map.height; y++) {
@@ -1824,6 +1868,7 @@ class ChaserMatch {
       }
       cellEls.push(row);
     }
+    fitBoardToWindow();
   }
 
   // Overlay sprite shown on cells an action just touched, matching GameBoard::FieldAccess:
@@ -2181,7 +2226,12 @@ class ChaserMatch {
     renderState(new ChaserEngine.GameEngine(currentMap));
     setRunning(false);
   });
-  $("speedRange").addEventListener("input", () => { if (match) match.setSpeed(900 - parseInt($("speedRange").value, 10)); });
+  function updateSpeedLabel() { $("speedValue").textContent = (900 - parseInt($("speedRange").value, 10)) + "ms/手"; }
+  updateSpeedLabel();
+  $("speedRange").addEventListener("input", () => {
+    updateSpeedLabel();
+    if (match) match.setSpeed(900 - parseInt($("speedRange").value, 10));
+  });
 })();
 </script>
 </body>
