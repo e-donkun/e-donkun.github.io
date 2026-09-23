@@ -330,7 +330,8 @@ footer a{color:var(--muted);}
       <li><code>import CHaser</code> と <code>cl = CHaser.Client()</code> にそのまま対応しています(実際のソケット接続やGUI表示は行わず、
           このシミュレータの盤面に直接つながります)。引数を渡しても無視されます。</li>
       <li><code>get_ready()</code> / <code>walk_up()</code> などの個別メソッドに加えて、
-          文字列で指定する <code>cl.cmd("gr")</code> / <code>cl.cmd("wu")</code> 形式(本家CHaser.pyと同じ2文字コマンド)にも対応しています。</li>
+          文字列で指定する <code>cl.cmd("wu")</code> 形式(本家CHaser.pyと同じ2文字コマンド)にも対応しています。
+          ただし本家と同じく <code>cl.cmd("gr")</code> では get_ready できない(エラーで終了する)ので、get_ready() を使ってください。</li>
       <li><code>import CHaser</code> をせず、あらかじめ用意されている <code>client</code> という変数をそのまま使うこともできます。</li>
       <li>非同期モードでは自動的に <code>await</code> が補われるので、基本的にはそのままで動きます。
           うまく動かないときだけ、上の説明の通り自分で <code>await</code> を追加してみてください。</li>
@@ -368,6 +369,7 @@ footer a{color:var(--muted);}
     right: { x: 1, y: 0 },
     left: { x: -1, y: 0 },
   };
+  const NO_MOVE = { x: 0, y: 0 }; // an unknown direction (Method::GetRoteVector's default)
 
   function makeRng(seed) {
     let a = seed >>> 0;
@@ -413,7 +415,10 @@ footer a{color:var(--muted);}
     let coolStart;
     do {
       const p = { x: randInt(rng, width), y: randInt(rng, height) };
-      if (p.x < width / 2 || (p.x === Math.floor(width / 2) && p.y < height / 2)) { coolStart = p; break; }
+      // integer halves, as in the official CreateRandomMap(): left of the centre column, or
+      // on it above the centre (so COOL/HOT never share the centre cell)
+      const cx = Math.floor(width / 2), cy = Math.floor(height / 2);
+      if (p.x < cx || (p.x === cx && p.y < cy)) { coolStart = p; break; }
     } while (true);
     const hotStart = mirrorPoint(coolStart, width, height);
     const starts = [coolStart, hotStart];
@@ -535,7 +540,7 @@ footer a{color:var(--muted);}
     }
 
     walk(team, dir) {
-      const vec = DIRS[dir];
+      const vec = DIRS[dir] || NO_MOVE;
       const p = this.pos[team];
       this.pos[team] = { x: p.x + vec.x, y: p.y + vec.y };
       this.pickItem(team, vec);
@@ -543,13 +548,13 @@ footer a{color:var(--muted);}
     }
 
     look(team, dir) {
-      const vec = DIRS[dir];
+      const vec = DIRS[dir] || NO_MOVE;
       const p = this.pos[team];
       return this.around({ x: p.x + vec.x * 2, y: p.y + vec.y * 2 }, team);
     }
 
     search(team, dir) {
-      const vec = DIRS[dir];
+      const vec = DIRS[dir] || NO_MOVE;
       const p = this.pos[team];
       const data = new Array(9);
       for (let k = 1; k <= 9; k++) data[k - 1] = this.fieldAccess({ x: p.x + vec.x * k, y: p.y + vec.y * k }, team);
@@ -557,7 +562,7 @@ footer a{color:var(--muted);}
     }
 
     put(team, dir) {
-      const vec = DIRS[dir];
+      const vec = DIRS[dir] || NO_MOVE;
       const p = this.pos[team];
       const target = { x: p.x + vec.x, y: p.y + vec.y };
       if (this.inBounds(target)) {
@@ -1036,18 +1041,21 @@ async def _identity(x):
 
 # str command -> (action, direction), matching the real CHaser.py's 2-letter wire protocol
 _CMD_MAP = {
-    "gr": ("ready", ""),
     "wu": ("walk", "up"), "wd": ("walk", "down"), "wl": ("walk", "left"), "wr": ("walk", "right"),
     "lu": ("look", "up"), "ld": ("look", "down"), "ll": ("look", "left"), "lr": ("look", "right"),
     "su": ("search", "up"), "sd": ("search", "down"), "sl": ("search", "left"), "sr": ("search", "right"),
     "pu": ("put", "up"), "pd": ("put", "down"), "pl": ("put", "left"), "pr": ("put", "right"),
 }
 # anything else is read like the official server's Method::fromString(): 1st char = action,
-# 2nd char = direction, "unknown" for either one it doesn't recognize (the server then stops it)
+# 2nd char = direction, "unknown" for either one it doesn't recognize (the server then stops it).
+# cmd("gr") is not get_ready(): like CHaser.py's cmd(), it sends "gr" without waiting for the
+# server's "@" first, so the server decides what it means ("gr-cmd").
 _CMD_ACT = {"w": "walk", "l": "look", "s": "search", "p": "put"}
 _CMD_DIR = {"u": "up", "d": "down", "r": "right", "l": "left"}
 def _parse_cmd(s):
     s = str(s)
+    if s == "gr":
+        return "gr-cmd", ""
     if s in _CMD_MAP:
         return _CMD_MAP[s]
     return _CMD_ACT.get(s[0:1], "unknown"), _CMD_DIR.get(s[1:2], "unknown")
@@ -1248,11 +1256,15 @@ replenishWarmPool();
 // GameEngine. Enforces get_ready-then-one-action ordering, paces turns for the UI, and
 // detects wins/losses/timeouts/crashes.
 // =====================================================================================
+const CHASER_ACTIONS = ["walk", "look", "search", "put"];
+// what CHaser.py prints when it reads the server's "@" as the reply to an order
+const CLIENT_RESPONSE_ERROR = ["responce[0] = @ : Response error.", "Responce Error"];
+
 class ChaserMatch {
   constructor({ map, coolCode, hotCode, speedMs, timeoutMs, onEvent }) {
     this.engine = new ChaserEngine.GameEngine(map);
     this.speedMs = speedMs == null ? 250 : speedMs;
-    this.timeoutMs = timeoutMs || 10000;
+    this.timeoutMs = timeoutMs || 5000; // TCPClient::TIMEOUT
     this.onEvent = onEvent || function () {};
     this.finished = false;
     this.paused = false;
@@ -1270,6 +1282,7 @@ class ChaserMatch {
     this.checkErrors = [null, null];  // {message, line} per side whose pre-start check failed
     this.checkFailed = false;
     this._loadedWaiters = [];
+    this.halted = [false, false]; // "is_disconnected": stopped by the server, loses at the next Judge()
 
     this.workers[0] = this._spawn(0, coolCode);
     this.workers[1] = this._spawn(1, hotCode);
@@ -1355,50 +1368,77 @@ class ChaserMatch {
     if (!this.started) { this.pendingByTeam[team] = msg; return; }
     if (team !== this.current) { this.pendingByTeam[team] = msg; return; }
 
+    // The programs' side of the exchange mirrors the official CHaser.py client.
     const expected = this.phase;
-    const gotReady = msg.action === "ready";
-    // a bad reply stops that side, logged with the official server's "[停止]" causes
-    if (expected === "ready" && !gotReady) return this._disconnect(team, "protocol", ["getready"]);
-    if (expected === "action" && gotReady) return this._disconnect(team, "protocol", ["double-getready"]);
-    if (!gotReady) {
-      const halts = [];
-      if (!["walk", "look", "search", "put"].includes(msg.action)) halts.push("bad-method");
-      if (!ChaserEngine.DIRS[msg.direction]) halts.push("bad-direction");
-      if (halts.length) return this._disconnect(team, "protocol", halts);
+    if (expected === "ready" && msg.action !== "ready") {
+      // any order other than get_ready(): CHaser.py takes the server's "@" for the reply and
+      // quits, and the server, getting something other than "gr", stops that side
+      this._clientExit(team, CLIENT_RESPONSE_ERROR);
+      return this._disconnect(team, "protocol", ["getready"]);
+    }
+    if (expected === "action" && msg.action === "ready") {
+      // get_ready() again: CHaser.py waits for an "@" the server never sends, so nothing
+      // happens until the server's wait for its action times out (the watchdog keeps running)
+      return;
     }
 
     this._clearWatchdog();
 
-    const scoreBefore = this.engine.score[team];
-    let result;
-    try {
-      result = gotReady ? this.engine.getReady(team) : this.engine.applyAction(team, msg.action, msg.direction);
-    } catch (e) {
-      return this._disconnect(team, "protocol", ["bad-method"]);
+    const gotReady = expected === "ready";
+    let action = msg.action, direction = msg.direction;
+    const halts = [];
+    if (!gotReady) {
+      if (action === "gr-cmd") { action = "unknown"; direction = "right"; } // Method::fromString("gr")
+      if (!CHASER_ACTIONS.includes(action)) halts.push("bad-method");
+      if (!ChaserEngine.DIRS[direction]) halts.push("bad-direction");
     }
-    const pickedItem = !gotReady && this.engine.score[team] > scoreBefore;
+    const validAction = !gotReady && CHASER_ACTIONS.includes(action);
 
+    // An order with a bad direction still runs, moving by (0,0) -- e.g. "px" puts a block on
+    // the mover's own cell. One with a bad action does nothing.
+    const scoreBefore = this.engine.score[team];
+    const result = gotReady ? this.engine.getReady(team) : validAction ? this.engine.applyAction(team, action, direction) : null;
+    const pickedItem = validAction && this.engine.score[team] > scoreBefore;
     const lossCheck = gotReady ? null : this.engine.checkLossAfterMove(team);
 
     this._gate(() => {
-      this._reply(team, msg.id, result);
+      if (halts.length) this.halted[team] = true;
+      if (lossCheck) {
+        // the result goes out flagged "game over": CHaser.py prints "Game Set!" and quits
+      } else if (!gotReady && !validAction) {
+        // no action to run: the server answers with an all-zero AroundData, whose leading "0"
+        // reads as "game over" to CHaser.py
+        this._clientExit(team, ["Game Set!"]);
+      } else {
+        this._reply(team, msg.id, result);
+      }
       // the official server counts the remaining turns down right after HOT's action
       if (!gotReady && team === 1) this.engine.round++;
-      this.onEvent({ type: "action", team, action: msg.action, direction: msg.direction, phase: expected, engine: this.engine, result, pickedItem, loss: lossCheck });
+      this.onEvent({ type: "action", team, action, direction, phase: expected, engine: this.engine, result, pickedItem, loss: lossCheck, halts });
 
-      if (lossCheck) { this._endGame(this.engine.other(lossCheck.loser), lossCheck.reason); return; }
+      const other = this.engine.other(team);
+      if (lossCheck) {
+        // Judge() ended it: the mover's reply and the other side's next GetReady say game over
+        this._endGame(this.engine.other(lossCheck.loser), lossCheck.reason, { gameSet: this.halted[other] ? [team] : [team, other] });
+        return;
+      }
 
       if (gotReady) {
+        // the other side was stopped on its last action: this step's Judge() finds it
+        // disconnected, and neither program hears from the server again
+        if (this.halted[other]) { this._endGame(team, "protocol", { cutLoser: other, gameSet: [] }); return; }
         this.phase = "action";
       } else {
-        this.current = this.engine.other(team);
+        this.current = other;
         this.phase = "ready";
         if (team === 1) {
           this._logTurn();
-          // out of turns: judged on items (the official Judge() does this once TimeBar is 0)
+          // out of turns: judged on items (the official Judge() does this once TimeBar is 0,
+          // after logging a stopped side as disconnected -- HOT is checked first there)
           if (this.engine.round > this.engine.turnLimit) {
             const r = this.engine.scoreResult();
-            this._endGame(r.winner, r.reason);
+            const cut = this.halted[1] ? 1 : this.halted[0] ? 0 : null;
+            this._endGame(r.winner, r.reason, { cutLoser: cut });
             return;
           }
         }
@@ -1467,12 +1507,23 @@ class ChaserMatch {
   // The official server treats every broken exchange -- a wrong reply, no reply in time, the
   // client going away -- as a disconnect: a wrong reply is logged as "[停止]..." (halts), and
   // Judge() then makes that side lose. Without explicit halts, a side that fails while the
-  // server is waiting for its GetReady gets the "didn't return GetReady" stop line.
+  // server is waiting for its GetReady gets the "didn't return GetReady" stop line. A side
+  // that was already stopped is already disconnected, so its program ending changes nothing.
   _disconnect(team, reason, halts) {
-    if (this.finished) return;
+    if (this.finished || this.halted[team]) return;
     if (!halts) halts = team === this.current && this.phase === "ready" ? ["getready"] : [];
     for (const cause of halts) this.onEvent({ type: "halt", team, cause, engine: this.engine });
-    this._endGame(this.engine.other(team), reason, team);
+    this.halted[team] = true;
+    // Judge() checks the side not on turn first, so one stopped on its last action loses
+    const other = this.engine.other(team);
+    const loser = this.halted[other] ? other : team;
+    this._endGame(this.engine.other(loser), reason, { cutLoser: loser, gameSet: this.halted[other] ? [] : undefined });
+  }
+  // the program quits by itself, printing what CHaser.py would (e.g. "Game Set!")
+  _clientExit(team, lines) {
+    this.onEvent({ type: "clientExit", team, lines });
+    const w = this.workers[team];
+    if (w) w.terminate();
   }
   _crash(team, message, line) {
     if (this.finished) return;
@@ -1480,14 +1531,18 @@ class ChaserMatch {
     this._disconnect(team, "crash");
   }
 
-  _endGame(winner, reason, disconnected = null) {
+  // cutLoser: the side Judge() logs as "通信切断"; gameSet: the sides told "game over" (by
+  // default every side still connected), whose CHaser.py prints "Game Set!" and quits
+  _endGame(winner, reason, { cutLoser = null, gameSet } = {}) {
     if (this.finished) return;
     this.finished = true;
     this._clearWatchdog();
     clearTimeout(this._gateTimer);
     for (const w of this.workers) if (w) w.terminate();
     this._resolveLoadedWaiters();
-    this.onEvent({ type: "end", winner, reason, disconnected, engine: this.engine });
+    const disconnected = [0, 1].filter((t) => this.halted[t]);
+    if (!gameSet) gameSet = [0, 1].filter((t) => !this.halted[t]);
+    this.onEvent({ type: "end", winner, reason, disconnected, cutLoser, gameSet, engine: this.engine });
   }
 
   destroy() {
@@ -2139,7 +2194,6 @@ class ChaserMatch {
   // "[停止]" lines (MainWindow::StepGame), including the official half/full-width "!"/"！"
   const STABLE_HALT_LABEL = {
     getready: "が正常にGetReadyを返しませんでした!",
-    "double-getready": "が二度GetReadyを行いました!",
     "bad-method": "が不正なメソッドを呼んでいます！",
     "bad-direction": "の行動メソッドが不正な方向を示しています！",
   };
@@ -2201,6 +2255,7 @@ class ChaserMatch {
       if (match && match.loaded) abortForCheckError();
     }
     else if (ev.type === "turn") logRow(`-----残${ev.remaining}ターン-----`);
+    else if (ev.type === "clientExit") for (const line of ev.lines) consoleWrite(ev.team, line);
     else if (ev.type === "halt") logRow(`[${stableLogTimestamp()}][停止]${ev.engine.teamName(ev.team)}${STABLE_HALT_LABEL[ev.cause]}`);
     else if (ev.type === "action") {
       const teamName = ev.engine.teamName(ev.team);
@@ -2215,7 +2270,9 @@ class ChaserMatch {
           const loserName = ev.engine.teamName(ev.loss.loser);
           logRow(`[${ts}][死因]${loserName}${STABLE_DEATH_LABEL[ev.loss.reason] || ev.loss.reason}`);
         }
-        const label = `${STABLE_ACTION_LABEL[ev.action] || ev.action}${STABLE_DIR_LABEL[ev.direction] || ev.direction}`;
+        for (const cause of ev.halts) logRow(`[${ts}][停止]${teamName}${STABLE_HALT_LABEL[cause]}`);
+        // MainWindow::convertString() leaves out an unknown action / direction
+        const label = `${STABLE_ACTION_LABEL[ev.action] || ""}${STABLE_DIR_LABEL[ev.direction] || ""}`;
         logRow(`[${ts}][行動]${teamName}が${label}を行いました。`);
         // the 9 cells around the mover's own position after the action (not the action's
         // look/search result), as the official server logs it
@@ -2229,6 +2286,7 @@ class ChaserMatch {
       setMode("finished");
       if (countdownPaused) setCountdownPaused(false); // e.g. a crash while the countdown was frozen
       // both programs' workers are terminated by _endGame; say so, since the last console line is "実行中…"
+      for (const t of ev.gameSet) consoleWrite(t, "Game Set!");
       consoleWrite(0, "[対戦終了: プログラムを停止しました]");
       consoleWrite(1, "[対戦終了: プログラムを停止しました]");
       playFanfare();
@@ -2237,14 +2295,14 @@ class ChaserMatch {
       banner.style.display = "block";
       const endTs = stableLogTimestamp();
       // block/surrounded deaths were logged by the "action" event that caused them
-      const lost = ev.disconnected != null ? ev.engine.teamName(ev.disconnected) : null;
-      if (lost) logRow(`[${endTs}][死因]${lost}通信切断`);
+      if (ev.cutLoser != null) logRow(`[${endTs}][死因]${ev.engine.teamName(ev.cutLoser)}通信切断`);
       if (ev.reason === "score" || ev.reason === "draw") {
         logRow(`[${endTs}][情報]相打ちまたは、タイムアップのためアイテム判定を行います`);
         logRow(`[${endTs}][得点]` + [0, 1].map((t) => `${ev.engine.teamName(t)}:${ev.engine.score[t]}  `).join(""));
       }
       // MainWindow::Finish()
-      if (lost) logRow(`[${endTs}][終了]${lost}との通信が切断されています。`);
+      const lost = ev.disconnected.map((t) => ev.engine.teamName(t));
+      for (const name of lost) logRow(`[${endTs}][終了]${name}との通信が切断されています。`);
       logRow(""); // Finish() logs the result label before setting it, i.e. an empty line
       if (ev.winner == null) {
         banner.textContent = "DRAW";
@@ -2252,10 +2310,10 @@ class ChaserMatch {
       } else {
         const name = ev.engine.teamName(ev.winner);
         banner.textContent = `${name} WIN!`;
-        if (lost) {
+        for (const l of lost) {
           const sub = document.createElement("div");
           sub.className = "sub";
-          sub.textContent = `[${lost} 切断により]`;
+          sub.textContent = `[${l} 切断により]`;
           banner.appendChild(sub);
         }
         logRow(`[${endTs}][決着]${name}が勝利しました。`, "win");
