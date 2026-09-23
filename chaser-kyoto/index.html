@@ -60,6 +60,7 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 .side.active{display:flex;}
 .console{background:var(--console-bg);color:var(--console-text);border-radius:8px;padding:8px 10px;height:110px;overflow:auto;font-size:12px;white-space:pre-wrap;}
 .console .err{color:#ff6b60;}
+.CodeMirror .cm-error-line{background:rgba(255,70,70,.3);}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;}
 .badge.cool{background:var(--cool);color:#fff;}
 .badge.hot{background:var(--hot);color:#fff;}
@@ -955,7 +956,7 @@ def _autoasyncify(source):
     try:
         tree = ast.parse(source)
     except SyntaxError:
-        return source
+        return None
 
     already_awaited_ids = {
         id(n.value) for n in ast.walk(tree)
@@ -982,7 +983,7 @@ def _autoasyncify(source):
                 changed = True
 
     if not async_names and not any(isinstance(n, ast.Call) and needs_await(n) for n in ast.walk(tree)):
-        return source
+        return None
 
     class Rewriter(ast.NodeTransformer):
         def visit_FunctionDef(self, node):
@@ -1005,11 +1006,127 @@ def _autoasyncify(source):
     tree = Rewriter().visit(tree)
     ast.fix_missing_locations(tree)
     try:
-        transformed = ast.unparse(tree)
-        compile(transformed, "<bot>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+        compile(tree, "<bot>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
     except SyntaxError:
-        return source
-    return transformed
+        return None
+    # Returned as an AST (not unparsed source) so error line numbers still match what the user typed.
+    return tree
+`;
+
+  // Pre-flight check + runner for the user's program. The program is compiled on its own
+  // under the filename below (the client shim runs separately beforehand), so tracebacks
+  // point at the line numbers the user actually typed. Errors come back as JSON
+  // {"message": ..., "line": ...} (or "" when fine).
+  const RUNNER_SRC = `
+import ast, builtins, difflib, importlib.util, inspect, json, traceback
+
+_USER_FILE = "プログラム"
+_NL = chr(10)
+
+def _chaser_src_line(src, n):
+    lines = src.splitlines()
+    return lines[n - 1] if 1 <= n <= len(lines) else ""
+
+def _chaser_show_line(src, n, col=None):
+    text = _chaser_src_line(src, n).rstrip()
+    out = "  " + str(n).rjust(3) + " | " + text
+    if col:
+        out += _NL + "      | " + " " * (col - 1) + "^"
+    return out
+
+def _chaser_err(message, line):
+    return json.dumps({"message": message, "line": line or 0}, ensure_ascii=False)
+
+def _chaser_check(src, known):
+    try:
+        tree = ast.parse(src, _USER_FILE)
+        compile(src, _USER_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    except SyntaxError as e:
+        n = e.lineno or 0
+        col = None if isinstance(e, IndentationError) else e.offset  # its offset isn't meaningful
+        return _chaser_err("[文法エラー] " + str(n) + "行目: " + str(e.msg) + _NL + _chaser_show_line(src, n, col), n)
+
+    problems = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            mods = [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
+            mods = [node.module]
+        else:
+            continue
+        for m in mods:
+            top = m.split(".")[0]
+            if top == "CHaser":
+                continue
+            try:
+                found = importlib.util.find_spec(top) is not None
+            except Exception:
+                found = True
+            if not found:
+                problems.append((node.lineno, node.col_offset + 1, "モジュール '" + top + "' が見つかりません(このシミュレータでは使えません)"))
+
+    star = any(isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names) for n in ast.walk(tree))
+    if not star:
+        bound = set(known) | set(dir(builtins))
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Name) and not isinstance(n.ctx, ast.Load):
+                bound.add(n.id)
+            elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                bound.add(n.name)
+            elif isinstance(n, ast.arg):
+                bound.add(n.arg)
+            elif isinstance(n, (ast.Import, ast.ImportFrom)):
+                for a in n.names:
+                    bound.add((a.asname or a.name).split(".")[0])
+            elif isinstance(n, ast.ExceptHandler) and n.name:
+                bound.add(n.name)
+            elif isinstance(n, (ast.Global, ast.Nonlocal)):
+                bound.update(n.names)
+            elif isinstance(n, (ast.MatchAs, ast.MatchStar)) and n.name:
+                bound.add(n.name)
+            elif isinstance(n, ast.MatchMapping) and n.rest:
+                bound.add(n.rest)
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and n.id not in bound:
+                msg = "'" + n.id + "' という名前は定義されていません"
+                close = difflib.get_close_matches(n.id, sorted(bound), n=1)
+                if close:
+                    msg += "(もしかして '" + close[0] + "' ?)"
+                problems.append((n.lineno, n.col_offset + 1, msg))
+
+    if not problems:
+        return ""
+    problems.sort()
+    parts = []
+    for (n, col, msg) in problems[:5]:
+        parts.append("[エラー] " + str(n) + "行目: " + msg + _NL + _chaser_show_line(src, n, col))
+    if len(problems) > 5:
+        parts.append("(ほか " + str(len(problems) - 5) + " 件)")
+    return _chaser_err(_NL.join(parts), problems[0][0])
+
+def _chaser_format_exc(e, src):
+    frames = [f for f in traceback.extract_tb(e.__traceback__) if f.filename == _USER_FILE]
+    head = type(e).__name__ + ": " + str(e)
+    if not frames:
+        return _chaser_err("[実行時エラー] " + head, 0)
+    last = frames[-1]
+    out = ["[実行時エラー] " + str(last.lineno) + "行目: " + head, _chaser_show_line(src, last.lineno)]
+    if len(frames) > 1:
+        out.append("  呼び出し元: " + " ← ".join(str(f.lineno) + "行目" for f in reversed(frames[:-1])))
+    return _chaser_err(_NL.join(out), last.lineno)
+
+async def _chaser_exec(src, transform):
+    tree = _autoasyncify(src) if transform else None
+    code = compile(tree if tree is not None else src, _USER_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    try:
+        r = eval(code, globals())
+        if inspect.iscoroutine(r):
+            await r
+    except SystemExit:
+        return ""
+    except BaseException as e:
+        return _chaser_format_exc(e, src)
+    return ""
 `;
 
   // Async bridge: client.xxx() are `async def`s that await a Promise resolved
@@ -1106,24 +1223,39 @@ sys.modules["CHaser"] = _chaser_module
   // so this still works correctly for a worker that's spawned cold, with no warm-up at all.
   async function runUserCode(team, code) {
     pyodide.globals.set("_team_name", team);
-    const shim = buildShim(syncMode);
-
-    if (!syncMode) {
-      // No SharedArrayBuffer here, so plain synchronous client.xxx() calls (the real
-      // CHaser.py style) can't work as-is -- best-effort auto-insert `await` (and
-      // promote whichever functions touch it to `async def`) so the same unmodified
-      // source still runs. Falls back to the untouched source if anything looks
-      // unsafe (generators, syntax it can't model) or fails to compile.
+    try {
+      pyodide.runPython(buildShim(syncMode));
+      // In async mode (no SharedArrayBuffer), plain synchronous client.xxx() calls (the real
+      // CHaser.py style) can't work as-is -- _autoasyncify best-effort inserts `await` (and
+      // promotes whichever functions touch it to `async def`); it's used by _chaser_exec.
       pyodide.runPython(AUTOASYNCIFY_SRC);
-      pyodide.globals.set("_user_code_text", code);
-      code = pyodide.runPython("_autoasyncify(_user_code_text)");
+      pyodide.runPython(RUNNER_SRC);
+    } catch (err) {
+      postMessage({ type: "crash", message: (err && err.message) ? err.message : String(err) });
+      return;
     }
 
+    // 1) Check before running: syntax errors, undefined names, missing modules.
+    pyodide.globals.set("_user_src", code);
+    const problem = pyodide.runPython("_chaser_check(_user_src, list(globals().keys()))");
+    if (problem) {
+      const p = JSON.parse(problem);
+      postMessage({ type: "checkError", message: p.message, line: p.line });
+      return;
+    }
+
+    // 2) Run it.
     postMessage({ type: "status", text: syncMode ? "プログラムを実行中…(同期モード / awaitなしでOK)" : "プログラムを実行中…(非同期モード / 自動でawaitを補完)" });
     postMessage({ type: "ready" });
     try {
-      await pyodide.runPythonAsync(shim + "\n" + code);
-      postMessage({ type: "finished" });
+      pyodide.globals.set("_transform", !syncMode);
+      const failure = await pyodide.runPythonAsync("await _chaser_exec(_user_src, _transform)");
+      if (failure) {
+        const p = JSON.parse(failure);
+        postMessage({ type: "crash", message: p.message, line: p.line });
+      } else {
+        postMessage({ type: "finished" });
+      }
     } catch (err) {
       postMessage({ type: "crash", message: (err && err.message) ? err.message : String(err) });
     }
@@ -1270,7 +1402,9 @@ class ChaserMatch {
     this._watchdog = null;
     this.loaded = false;    // both workers finished loading Pyodide and are about to run code
     this.started = false;   // UI has finished the countdown/reveal animation; turns may now proceed
-    this._readyCount = 0;
+    this._settled = [false, false]; // each program has either started running or failed its check
+    this.checkErrors = [null, null];  // {message, line} per side whose pre-start check failed
+    this.checkFailed = false;
     this._loadedWaiters = [];
 
     this.workers[0] = this._spawn(0, coolCode);
@@ -1319,23 +1453,40 @@ class ChaserMatch {
     if (msg.type === "status") this.onEvent({ type: "status", team, text: msg.text });
     else if (msg.type === "stdout") this.onEvent({ type: "stdout", team, text: msg.text });
     else if (msg.type === "stderr") this.onEvent({ type: "stderr", team, text: msg.text });
-    else if (msg.type === "crash") { settleWarmup(this.workers[team]); this._crash(team, msg.message); }
+    else if (msg.type === "checkError") { settleWarmup(this.workers[team]); this._failCheck(team, msg.message, msg.line); }
+    // before the match has begun (i.e. before its first get_ready() is answered), a crash or an
+    // early exit counts as a failed pre-start check: the match is called off, not lost
+    else if (msg.type === "crash" && !this.started) { settleWarmup(this.workers[team]); this._failCheck(team, msg.message, msg.line); }
+    else if (msg.type === "finished" && !this.started) this._failCheck(team, "[エラー] プログラムが get_ready() を呼ぶ前に終了しました(while True: のループになっているか確認してください)", 0);
+    else if (msg.type === "crash") { settleWarmup(this.workers[team]); this._crash(team, msg.message, msg.line); }
     else if (msg.type === "finished") this._endGame(this.engine.other(team), "program-ended");
     else if (msg.type === "call") this._onCall(team, msg);
     else if (msg.type === "warm") settleWarmup(this.workers[team]); // claimed from the pool before its own warmup finished
     else if (msg.type === "ready") {
       settleWarmup(this.workers[team]);
-      this._readyCount++;
-      if (this._readyCount >= 2 && !this.loaded) {
-        this.loaded = true;
-        this.onEvent({ type: "loaded" });
-        this._resolveLoadedWaiters();
-      }
+      this._settled[team] = true;
+      this._maybeLoaded();
     }
   }
 
+  // loaded = both programs have either passed their check and started, or failed it
+  _maybeLoaded() {
+    if (this.loaded || !this._settled[0] || !this._settled[1]) return;
+    this.loaded = true;
+    this.onEvent({ type: "loaded" });
+    this._resolveLoadedWaiters();
+  }
+  _failCheck(team, message, line) {
+    if (this.checkErrors[team]) return;
+    this.checkErrors[team] = { message, line };
+    this.checkFailed = true;
+    this.onEvent({ type: "checkError", team, text: message, line });
+    this._settled[team] = true;
+    this._maybeLoaded();
+  }
+
   _onCall(team, msg) {
-    if (this.finished) return;
+    if (this.finished || this.checkFailed) return;
     if (!this.started) { this.pendingByTeam[team] = msg; return; }
     if (team !== this.current) { this.pendingByTeam[team] = msg; return; }
 
@@ -1439,9 +1590,9 @@ class ChaserMatch {
     this.onEvent({ type: "log", text: `[反則] ${this.engine.teamName(team)}: ${text}` });
     this._endGame(this.engine.other(team), "protocol");
   }
-  _crash(team, message) {
+  _crash(team, message, line) {
     if (this.finished) return;
-    this.onEvent({ type: "stderr", team, text: message });
+    this.onEvent({ type: "stderr", team, text: message, line });
     this._endGame(this.engine.other(team), "crash");
   }
 
@@ -2150,7 +2301,14 @@ class ChaserMatch {
   function onMatchEvent(ev) {
     if (ev.type === "status") consoleWrite(ev.team, "[" + ev.text + "]");
     else if (ev.type === "stdout") consoleWrite(ev.team, ev.text);
-    else if (ev.type === "stderr") consoleWrite(ev.team, ev.text, true);
+    else if (ev.type === "stderr") { consoleWrite(ev.team, ev.text, true); markErrorLine(ev.team, ev.line); }
+    else if (ev.type === "checkError") {
+      consoleWrite(ev.team, ev.text, true);
+      markErrorLine(ev.team, ev.line);
+      // failed while the countdown was already playing (both had loaded): call it off now;
+      // otherwise startMatch does it once both programs have been checked
+      if (match && match.loaded) abortForCheckError();
+    }
     else if (ev.type === "log") logRow(ev.text);
     else if (ev.type === "action") {
       const teamName = ev.engine.teamName(ev.team);
@@ -2207,10 +2365,46 @@ class ChaserMatch {
     }
   }
 
+  // ---- program errors: highlight the offending line in the editor -------------------------
+  let errorMarks = [];
+  function clearErrorMarks() {
+    for (const [cm, h] of errorMarks) cm.removeLineClass(h, "background", "cm-error-line");
+    errorMarks = [];
+  }
+  function markErrorLine(team, line) {
+    if (!line || botActive[team]) return;
+    const cm = team === 0 ? coolCM : hotCM;
+    if (line > cm.lineCount()) return;
+    if (!errorMarks.length) selectTab(team === 0 ? "cool" : "hot"); // show the first side with an error
+    errorMarks.push([cm, cm.addLineClass(line - 1, "background", "cm-error-line")]);
+    cm.scrollIntoView({ line: line - 1, ch: 0 }, 60);
+  }
+  coolCM.on("change", clearErrorMarks);
+  hotCM.on("change", clearErrorMarks);
+
+  // A program failed its pre-start check (syntax error, undefined name, crashed or ended
+  // before its first get_ready()): don't play the match -- back to idle with the errors shown.
+  function abortForCheckError() {
+    runToken++;
+    stopCountdown();
+    if (match) { match.destroy(); match = null; }
+    setLoading(false);
+    renderBoardSkeleton(currentMap);
+    renderState(new ChaserEngine.GameEngine(currentMap));
+    $("turnBox").style.display = "none";
+    const banner = $("winBanner");
+    banner.style.display = "block";
+    banner.style.fontSize = "18px";
+    banner.textContent = "プログラムにエラーが\nあるため対戦を\n開始できません";
+    logRow(`[${stableLogTimestamp()}]プログラムにエラーがあるため、対戦を開始できませんでした。`);
+    setMode("idle");
+  }
+
   function resetStageChrome() {
     $("turnBox").style.display = "";
     const banner = $("winBanner");
     banner.style.display = "none";
+    banner.style.fontSize = "";
     banner.textContent = "";
     setLoading(false);
   }
@@ -2228,6 +2422,7 @@ class ChaserMatch {
     setMode(startPaused ? "paused" : "preparing");
     if (match) match.destroy();
     clearConsoles();
+    clearErrorMarks();
     resetStageChrome();
     resetFallbackNames();
     refreshStageNames();
@@ -2247,7 +2442,8 @@ class ChaserMatch {
     await match.whenLoaded();
     if (myToken !== runToken) return; // superseded by a reset or another run while we were loading
     setLoading(false);
-    if (match.finished) { setMode("finished"); return; } // e.g. crashed during Pyodide init
+    if (match.checkFailed) { abortForCheckError(); return; } // e.g. a syntax error: don't start at all
+    if (match.finished) { setMode("finished"); return; }
 
     // 2) Only once loading is actually done: countdown sound + board reveal animation.
     playCountdown();
@@ -2291,6 +2487,7 @@ class ChaserMatch {
     stopCountdown();
     if (match) { match.destroy(); match = null; }
     clearConsoles();
+    clearErrorMarks();
     resetStageChrome();
     renderBoardSkeleton(currentMap);
     renderState(new ChaserEngine.GameEngine(currentMap));
