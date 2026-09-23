@@ -151,8 +151,8 @@ footer a{color:var(--muted);}
 <main class="layout">
   <section class="panel">
     <div class="tabbar">
-      <button id="tabCool" class="active">COOL 側のコード</button>
-      <button id="tabHot" class="hot">HOT 側のコード</button>
+      <button id="tabCool" class="active">Cool 側のコード</button>
+      <button id="tabHot" class="hot">Hot 側のコード</button>
     </div>
 
     <div id="sideCool" class="side active">
@@ -167,9 +167,9 @@ footer a{color:var(--muted);}
         <button id="coolDownload">保存(.py)</button>
         <button id="coolClearBot" style="display:none;">ボットの設定を解除する</button>
       </div>
-      <div class="controls-row"><label for="coolName" class="small">プレイヤー名</label><input type="text" id="coolName" class="name-input" placeholder="COOL" maxlength="20"></div>
+      <div class="controls-row"><label for="coolName" class="small">プレイヤー名</label><input type="text" id="coolName" class="name-input" placeholder="Cool" maxlength="20"></div>
       <div class="editor-host" id="coolEditorHost"><textarea id="coolEditor"></textarea></div>
-      <div class="controls-row"><span class="badge cool">COOL</span><span class="small" id="coolAutosave"></span></div>
+      <div class="controls-row"><span class="badge cool">Cool</span><span class="small" id="coolAutosave"></span></div>
       <div class="console code-mono" id="coolConsole"></div>
     </div>
 
@@ -185,9 +185,9 @@ footer a{color:var(--muted);}
         <button id="hotDownload">保存(.py)</button>
         <button id="hotClearBot" style="display:none;">ボットの設定を解除する</button>
       </div>
-      <div class="controls-row"><label for="hotName" class="small">プレイヤー名</label><input type="text" id="hotName" class="name-input" placeholder="HOT" maxlength="20"></div>
+      <div class="controls-row"><label for="hotName" class="small">プレイヤー名</label><input type="text" id="hotName" class="name-input" placeholder="Hot" maxlength="20"></div>
       <div class="editor-host" id="hotEditorHost"><textarea id="hotEditor"></textarea></div>
-      <div class="controls-row"><span class="badge hot">HOT</span><span class="small" id="hotAutosave"></span></div>
+      <div class="controls-row"><span class="badge hot">Hot</span><span class="small" id="hotAutosave"></span></div>
       <div class="console code-mono" id="hotConsole"></div>
     </div>
   </section>
@@ -228,7 +228,7 @@ footer a{color:var(--muted);}
             <div class="row"><span>SCORE :</span><span id="coolScoreStage">0</span></div>
           </div>
           <div class="stage-team hot">
-            <div class="label">HOT</div>
+            <div class="label">Hot</div>
             <div class="row name-row"><span>NAME :</span><span id="hotNameStage">02</span></div>
             <div class="row"><span>SCORE :</span><span id="hotScoreStage">0</span></div>
           </div>
@@ -244,9 +244,9 @@ footer a{color:var(--muted);}
       <button id="runBtn" class="primary">▶ 対戦開始</button>
       <button id="stepBtn">⏭ 1ステップすすむ</button>
       <button id="resetBtn">↻ リセット</button>
-      <button id="swapBtn" title="COOL と HOT のプログラム(とプレイヤー名)をそのまま入れ替えます">⇔ Cool・Hot入れ替え</button>
+      <button id="swapBtn" title="Cool と Hot のプログラム(とプレイヤー名)をそのまま入れ替えます">⇔ Cool・Hot入れ替え</button>
       <label>速さ
-        <input type="range" id="speedRange" min="0" max="600" value="300" step="10">
+        <input type="range" id="speedRange" min="0" max="600" value="100" step="10">
         <span class="speed-value" id="speedValue"></span>
       </label>
       <button type="button" id="logToggle" aria-controls="log" aria-expanded="false">対戦ログ▼</button>
@@ -265,7 +265,7 @@ footer a{color:var(--muted);}
 <dialog id="helpDialog">
   <div class="dialog-body">
     <h2>CHaser Kyoto Web の遊び方</h2>
-    <p>CHaser は、15×17マスの盤面上で2つのプログラム(COOLとHOT)が交互に1手ずつ行動し、
+    <p>CHaser は、15×17マスの盤面上で2つのプログラム(CoolとHot)が交互に1手ずつ行動し、
        アイテムを取り合いながら相手を追いつめる対戦ゲームです。左のエディタに Python で作戦を書いて、
        「対戦開始」で右側の盤面上で動かして確認できます。</p>
 
@@ -480,7 +480,7 @@ footer a{color:var(--muted);}
     return lines.join("\n") + "\n";
   }
 
-  const TEAM_NAMES = ["COOL", "HOT"];
+  const TEAM_NAMES = ["Cool", "Hot"];
 
   class GameEngine {
     constructor(map) {
@@ -773,25 +773,8 @@ H:11,8
 ` },
 };
 
-const STARTER_TEMPLATE = `# CHaser Kyoto - あなたのプログラムをここに書いてください
-#
-# ルール概要:
-#   client.get_ready()                        そのターンの自分の周囲9マスを取得(行動の前に必ず1回)
-#   client.walk_up()/down()/left()/right()    1マス移動して、移動先を中心とした周囲9マスを取得
-#   client.look_up()/down()/left()/right()    2マス先を中心とした周囲9マスを覗き見る(移動しない)
-#   client.search_up()/down()/left()/right()  その方向へ直線9マス分の情報を取得(移動しない)
-#   client.put_up()/down()/left()/right()     隣にブロックを置く(相手に置ければ勝ち!)
-#
-# 戻り値は9個の整数のリスト。並び順(自分から見て):
-#   [左上, 上, 右上, 左, (中央,自分の位置), 右, 左下, 下, 右下]
-# 値の意味: 0=何もない  1=相手  2=ブロック  3=アイテム
-# 中央(自分の位置)は通常は常に0ですが、相手と同じマスに重なった場合は1になります。
-#
-# 1ターンにつき、必ず get_ready() を1回 -> 行動を1回、の順で呼び出してください。
-
-while True:
-    info = client.get_ready()
-    # ここに作戦を書いてみましょう。とりあえず右に歩いてみる例:
+const STARTER_TEMPLATE = `while True:
+    a = client.get_ready()
     client.walk_right()
 `;
 
@@ -1327,7 +1310,7 @@ class ChaserMatch {
     worker.onerror = (ev) => { settleWarmup(worker); this._crash(team, (ev && ev.message) || "worker error"); };
     if (sab) this.syncViews[team] = new Int32Array(sab);
     if (!warm) scheduleWarmup(worker, () => worker.postMessage({ type: "warmup", pyodideUrl: PYODIDE_URL, sab }));
-    worker.postMessage({ type: "run", team: team === 0 ? "COOL" : "HOT", code });
+    worker.postMessage({ type: "run", team: team === 0 ? "Cool" : "Hot", code });
     return worker;
   }
 
@@ -1415,7 +1398,7 @@ class ChaserMatch {
   }
 
   _gate(fn) {
-    if (this._stepRequested) { this._stepRequested = false; fn(); return; }
+    if (this._stepBudget > 0) { this._stepBudget--; fn(); return; }
     this._pendingGate = fn;
     if (!this.paused) this._armGateTimer();
   }
@@ -1428,10 +1411,14 @@ class ChaserMatch {
     }, this.speedMs);
   }
   pause() { if (this.paused) return; this.paused = true; clearTimeout(this._gateTimer); }
-  resume() { if (!this.paused) return; this.paused = false; this._stepRequested = false; if (this._pendingGate) this._armGateTimer(); }
+  resume() { if (!this.paused) return; this.paused = false; this._stepBudget = 0; if (this._pendingGate) this._armGateTimer(); }
+  // One step = one side's whole turn: get_ready() and then its action (or just the action if
+  // paused between the two). Calls that haven't arrived yet (program still thinking) run as
+  // soon as they do.
   step() {
-    // the next action hasn't arrived yet (program still thinking): run it as soon as it does
-    if (!this._pendingGate) { this._stepRequested = true; return; }
+    this._stepBudget = this.phase === "ready" ? 2 : 1;
+    if (!this._pendingGate) return;
+    this._stepBudget--;
     clearTimeout(this._gateTimer);
     const fn = this._pendingGate;
     this._pendingGate = null;
@@ -1551,14 +1538,14 @@ class ChaserMatch {
   const LS_NAME_KEYS = { cool: "chaser-kyoto:name:cool", hot: "chaser-kyoto:name:hot" };
   try { $("coolName").value = localStorage.getItem(LS_NAME_KEYS.cool) || ""; } catch (e) {}
   try { $("hotName").value = localStorage.getItem(LS_NAME_KEYS.hot) || ""; } catch (e) {}
-  const fallbackName = [null, null]; // random "COOL-xxxx"/"HOT-xxxx" used while the name field is blank
+  const fallbackName = [null, null]; // random "Cool-xxxx"/"Hot-xxxx" used while the name field is blank
   function randomHex4() { return Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0"); }
   function resetFallbackNames() { fallbackName[0] = null; fallbackName[1] = null; }
   function playerName(team) {
     const el = team === 0 ? $("coolName") : $("hotName");
     const v = el.value.trim();
     if (v) return v;
-    if (!fallbackName[team]) fallbackName[team] = (team === 0 ? "COOL" : "HOT") + "-" + randomHex4();
+    if (!fallbackName[team]) fallbackName[team] = (team === 0 ? "Cool" : "Hot") + "-" + randomHex4();
     return fallbackName[team];
   }
   function refreshStageNames() {
@@ -1978,6 +1965,10 @@ class ChaserMatch {
   function playStartAnimation(map, token) {
     return new Promise((resolve) => {
       const cancelled = () => token != null && token !== runToken;
+      // while the countdown is paused, hold every step until it's resumed (or cancelled)
+      const later = (fn, ms) => setTimeout(function wait() {
+        if (countdownPaused && !cancelled()) setTimeout(wait, 50); else fn();
+      }, ms);
       for (const row of cellEls) for (const cell of row) {
         cell.dataset.revealed = "0";
         cell.style.backgroundImage = "";
@@ -2000,20 +1991,20 @@ class ChaserMatch {
           cell.querySelector(".content").style.backgroundImage = sprite ? `url(${sprite})` : "";
         }
         if (i >= order.length) {
-          showTeamToken(0, map, () => (cancelled() ? resolve() : showTeamToken(1, map, resolve)));
+          showTeamToken(0, map, later, () => (cancelled() ? resolve() : showTeamToken(1, map, later, resolve)));
         } else {
-          setTimeout(tick, perTick);
+          later(tick, perTick);
         }
       };
-      tick();
+      later(tick, 0);
     });
   }
 
-  function showTeamToken(team, map, next) {
+  function showTeamToken(team, map, later, next) {
     const p = map.start[team];
     const cell = cellEls[p.y][p.x];
     cell.querySelector(".tok").style.backgroundImage = `url(${CHASER_SPRITES[team === 0 ? "Cool" : "Hot"]})`;
-    setTimeout(next, 500);
+    later(next, 500);
   }
 
   // ---- sound: countdown beeps at match start, chaser-server's fanfare at match end -----
@@ -2023,12 +2014,23 @@ class ChaserMatch {
   // envelope, the way a single-oscillator synth patch (sine wave, no filter/effects)
   // would play it.
   let countdownOscs = [];
+  let countdownPaused = false;
   function stopCountdown() {
     for (const osc of countdownOscs) { try { osc.stop(); } catch (e) {} }
     countdownOscs = [];
+    setCountdownPaused(false);
+  }
+  // Pausing freezes the countdown: the reveal animation waits (see playStartAnimation) and the
+  // audio context is suspended, which also freezes the already-scheduled beeps in place.
+  function setCountdownPaused(on) {
+    countdownPaused = on;
+    if (!audioCtx) return;
+    try { on ? audioCtx.suspend() : audioCtx.resume(); } catch (e) {}
   }
   function playCountdown() {
+    const wasPaused = countdownPaused; // paused while Pyodide was still loading: start the countdown frozen
     stopCountdown();
+    if (wasPaused) setCountdownPaused(true);
     if (!isSoundEnabled()) return;
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -2176,6 +2178,10 @@ class ChaserMatch {
     } else if (ev.type === "end") {
       renderState(ev.engine);
       setMode("finished");
+      if (countdownPaused) setCountdownPaused(false); // e.g. a crash while the countdown was frozen
+      // both programs' workers are terminated by _endGame; say so, since the last console line is "実行中…"
+      consoleWrite(0, "[対戦終了: プログラムを停止しました]");
+      consoleWrite(1, "[対戦終了: プログラムを停止しました]");
       playFanfare();
       $("turnBox").style.display = "none";
       const banner = $("winBanner");
@@ -2265,13 +2271,20 @@ class ChaserMatch {
   $("runBtn").addEventListener("click", () => {
     if (mode === "idle") startMatch(false);
     else if (!match) return;
-    else if (mode === "running" || mode === "preparing") { match.pause(); setMode("paused"); }
-    else if (mode === "paused" && !match.started) { match.resume(); setMode("preparing"); } // still counting down
+    else if (mode === "running" || mode === "preparing") {
+      match.pause();
+      if (!match.started) setCountdownPaused(true); // still loading / counting down: freeze the countdown too
+      setMode("paused");
+    }
+    else if (mode === "paused" && !match.started) { match.resume(); setCountdownPaused(false); setMode("preparing"); }
     else if (mode === "paused") { match.resume(); setMode("running"); }
   });
   $("stepBtn").addEventListener("click", () => {
     if (mode === "idle") startMatch(true);
-    else if (mode === "paused" && match) match.step();
+    else if (mode === "paused" && match) {
+      if (!match.started) setCountdownPaused(false); // let the countdown finish, then run exactly one action
+      match.step();
+    }
   });
   $("resetBtn").addEventListener("click", () => {
     runToken++;
