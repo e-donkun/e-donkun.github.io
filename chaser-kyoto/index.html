@@ -37,6 +37,8 @@ button, select, input[type=file]::file-selector-button, .btn{
   background:var(--panel);color:var(--text);cursor:pointer;
 }
 button.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent);}
+button.pausing{background:#f8d7d4;color:#1c1e21;border-color:#c9534a;}
+label.btn.disabled{opacity:.5;cursor:not-allowed;pointer-events:none;}
 button.danger{background:var(--accent2);color:#fff;border-color:var(--accent2);}
 button:disabled{opacity:.5;cursor:not-allowed;}
 button:hover:not(:disabled){filter:brightness(1.08);}
@@ -200,7 +202,7 @@ footer a{color:var(--muted);}
         <option value="custom">アップロードしたマップ</option>
       </select>
       <button id="newRandomMap">新しいランダムマップ</button>
-      <label class="btn" style="padding:6px 10px;">マップ読込
+      <label class="btn" id="mapUploadLabel" style="padding:6px 10px;">マップ読込
         <input type="file" id="mapUpload" accept=".map,.txt,text/plain" style="display:none;">
       </label>
       <button id="mapDownload">マップ保存</button>
@@ -242,9 +244,8 @@ footer a{color:var(--muted);}
 
     <div class="controls-row">
       <button id="runBtn" class="primary">▶ 対戦開始</button>
-      <button id="pauseBtn" disabled>⏸ 一時停止</button>
-      <button id="stepBtn" disabled>⏭ 1ステップすすめる</button>
-      <button id="resetBtn">■ リセット</button>
+      <button id="stepBtn">⏭ 1ステップすすむ</button>
+      <button id="resetBtn">↻ リセット</button>
       <button id="swapBtn" title="COOL と HOT のプログラム(とプレイヤー名)をそのまま入れ替えます">⇔ Cool・Hot入れ替え</button>
       <label>速さ
         <input type="range" id="speedRange" min="0" max="900" value="250" step="10">
@@ -1416,6 +1417,7 @@ class ChaserMatch {
   }
 
   _gate(fn) {
+    if (this._stepRequested) { this._stepRequested = false; fn(); return; }
     this._pendingGate = fn;
     if (!this.paused) this._armGateTimer();
   }
@@ -1428,9 +1430,10 @@ class ChaserMatch {
     }, this.speedMs);
   }
   pause() { if (this.paused) return; this.paused = true; clearTimeout(this._gateTimer); }
-  resume() { if (!this.paused) return; this.paused = false; if (this._pendingGate) this._armGateTimer(); }
+  resume() { if (!this.paused) return; this.paused = false; this._stepRequested = false; if (this._pendingGate) this._armGateTimer(); }
   step() {
-    if (!this._pendingGate) return;
+    // the next action hasn't arrived yet (program still thinking): run it as soon as it does
+    if (!this._pendingGate) { this._stepRequested = true; return; }
     clearTimeout(this._gateTimer);
     const fn = this._pendingGate;
     this._pendingGate = null;
@@ -1597,6 +1600,14 @@ class ChaserMatch {
   // 環境(file:// で直接開いた場合など)では「自動くん」だけが選べる。
   const BOTS = { idle: { name: "自動くん", code: SAMPLE_BOTS.idle.code } };
   const botActive = [null, null]; // 各サイドで読み込み中のボットID、無ければnull
+  // 再読み込み後もボット設定(ソースを隠した状態)を保てるよう、ボットIDも localStorage に保存する
+  const LS_BOT_KEYS = ["chaser-kyoto:bot:cool", "chaser-kyoto:bot:hot"];
+  function saveBotState(team) {
+    try {
+      if (botActive[team]) localStorage.setItem(LS_BOT_KEYS[team], botActive[team]);
+      else localStorage.removeItem(LS_BOT_KEYS[team]);
+    } catch (e) {}
+  }
 
   function populateBotSelect(sel) {
     const prev = sel.value;
@@ -1640,11 +1651,13 @@ class ChaserMatch {
     cm.setValue(bot.code);
     setPlayerName(team, bot.name);
     setBotUI(team, true);
+    saveBotState(team);
   }
   function clearBot(team) {
     botActive[team] = null;
     setPlayerName(team, "");
     setBotUI(team, false);
+    saveBotState(team);
     (team === 0 ? coolCM : hotCM).refresh(); // fix line measurements after being display:none
   }
 
@@ -1658,6 +1671,14 @@ class ChaserMatch {
   }
   $("coolClearBot").addEventListener("click", () => clearBot(0));
   $("hotClearBot").addEventListener("click", () => clearBot(1));
+
+  // 前回ボットを読み込んだままだったサイドは、再読み込み後もボット設定の状態(ソース非表示)に戻す。
+  // コード自体は自動保存済みのものがエディタに入っている。
+  for (const team of [0, 1]) {
+    let id = null;
+    try { id = localStorage.getItem(LS_BOT_KEYS[team]); } catch (e) {}
+    if (id) { botActive[team] = id; setBotUI(team, true); }
+  }
 
   coolCM.on("change", () => applyPlayerDirective(0, coolCM));
   hotCM.on("change", () => applyPlayerDirective(1, hotCM));
@@ -1771,6 +1792,7 @@ class ChaserMatch {
       cms[t].setValue(src.code);
       setPlayerName(t, src.name);
       setBotUI(t, !!src.bot);
+      saveBotState(t);
       if (!src.bot) cms[t].refresh(); // fix line measurements if the editor was display:none
     }
   });
@@ -1820,7 +1842,7 @@ class ChaserMatch {
     renderState(new ChaserEngine.GameEngine(currentMap));
   });
   async function loadMapFile(file) {
-    if (!file) return;
+    if (!file || mode !== "idle") return; // map changes only before a match (see setMode)
     customMapText = await file.text();
     $("mapSelect").value = "custom";
     currentMap = ChaserEngine.parseMapText(customMapText);
@@ -2091,11 +2113,31 @@ class ChaserMatch {
   // ---- match control ----------------------------------------------------------------------
   let match = null;
 
-  function setRunning(running) {
-    $("runBtn").disabled = running;
-    $("pauseBtn").disabled = !running;
-    $("stepBtn").disabled = !running;
-    $("pauseBtn").textContent = "⏸ 一時停止";
+  // Button states follow issue #4's diagram:
+  //   idle      (対戦開始前)   : ▶対戦開始 / 1ステップ / リセット / 入れ替え  all enabled
+  //   preparing (読込/演出中) : everything disabled
+  //   running   (対戦実行時)   : ⏸一時停止 only
+  //   paused    (一時停止時)   : ▶対戦再開 / 1ステップ / リセット  (入れ替え disabled)
+  //   finished  (決着後)       : リセット only -- a new match can't start until reset
+  // Map controls are only usable while idle, since changing the map redraws the board.
+  let mode = "idle";
+  const MAIN_LABEL = { idle: "▶ 対戦開始", preparing: "⏸ 一時停止", running: "⏸ 一時停止", paused: "▶ 対戦再開", finished: "▶ 対戦開始" };
+  function setMode(m) {
+    mode = m;
+    const main = $("runBtn");
+    main.textContent = MAIN_LABEL[m];
+    const pausing = m === "running" || m === "preparing";
+    main.classList.toggle("primary", !pausing);
+    main.classList.toggle("pausing", pausing);
+    main.disabled = m === "preparing" || m === "finished";
+    $("stepBtn").disabled = !(m === "idle" || m === "paused");
+    $("resetBtn").disabled = !(m === "idle" || m === "paused" || m === "finished");
+    $("swapBtn").disabled = m !== "idle";
+    const mapLocked = m !== "idle";
+    $("mapSelect").disabled = mapLocked;
+    $("newRandomMap").disabled = mapLocked;
+    $("mapUpload").disabled = mapLocked;
+    $("mapUploadLabel").classList.toggle("disabled", mapLocked);
   }
 
   function onMatchEvent(ev) {
@@ -2128,7 +2170,7 @@ class ChaserMatch {
       }
     } else if (ev.type === "end") {
       renderState(ev.engine);
-      setRunning(false);
+      setMode("finished");
       playFanfare();
       $("turnBox").style.display = "none";
       const banner = $("winBanner");
@@ -2170,8 +2212,9 @@ class ChaserMatch {
 
   let runToken = 0; // invalidates an in-flight start animation if reset/run-again happens mid-animation
 
-  async function startMatch() {
+  async function startMatch(startPaused) {
     const myToken = ++runToken;
+    setMode("preparing");
     if (match) match.destroy();
     clearConsoles();
     resetStageChrome();
@@ -2179,7 +2222,6 @@ class ChaserMatch {
     refreshStageNames();
     currentMap = buildMap();
     renderBoardSkeleton(currentMap);
-    $("runBtn").disabled = true;
 
     // 1) Load Pyodide in both workers first, with a spinner -- no countdown/animation yet.
     setLoading(true, "Pyodide を読み込み中…");
@@ -2194,28 +2236,38 @@ class ChaserMatch {
     await match.whenLoaded();
     if (myToken !== runToken) return; // superseded by a reset or another run while we were loading
     setLoading(false);
-    if (match.finished) { $("runBtn").disabled = false; return; } // e.g. crashed during Pyodide init
+    if (match.finished) { setMode("finished"); return; } // e.g. crashed during Pyodide init
 
     // 2) Only once loading is actually done: countdown sound + board reveal animation.
     playCountdown();
     await playStartAnimation(currentMap);
     if (myToken !== runToken) return; // superseded by a reset or another run while we were animating
-    if (match.finished) { $("runBtn").disabled = false; return; }
+    if (match.finished) { setMode("finished"); return; }
     renderState(match.engine);
 
     // 3) Now let real gameplay (and the TLE watchdog) begin.
     logRow(`[${stableLogTimestamp()}]セットアップ完了　ゲームを開始します。`);
-    match.begin();
-    setRunning(true);
+    if (startPaused) {
+      // 「1ステップすすむ」from idle: start the match paused and advance just one action
+      match.pause();
+      match.begin();
+      setMode("paused");
+      match.step();
+    } else {
+      match.begin();
+      setMode("running");
+    }
   }
-  $("runBtn").addEventListener("click", startMatch);
 
-  $("pauseBtn").addEventListener("click", () => {
-    if (!match) return;
-    if (match.paused) { match.resume(); $("pauseBtn").textContent = "⏸ 一時停止"; }
-    else { match.pause(); $("pauseBtn").textContent = "▶ 再開"; }
+  $("runBtn").addEventListener("click", () => {
+    if (mode === "idle") startMatch(false);
+    else if (mode === "running" && match) { match.pause(); setMode("paused"); }
+    else if (mode === "paused" && match) { match.resume(); setMode("running"); }
   });
-  $("stepBtn").addEventListener("click", () => { if (match) { if (!match.paused) match.pause(); match.step(); } });
+  $("stepBtn").addEventListener("click", () => {
+    if (mode === "idle") startMatch(true);
+    else if (mode === "paused" && match) match.step();
+  });
   $("resetBtn").addEventListener("click", () => {
     runToken++;
     if (match) { match.destroy(); match = null; }
@@ -2223,7 +2275,7 @@ class ChaserMatch {
     resetStageChrome();
     renderBoardSkeleton(currentMap);
     renderState(new ChaserEngine.GameEngine(currentMap));
-    setRunning(false);
+    setMode("idle");
   });
   function updateSpeedLabel() { $("speedValue").textContent = (900 - parseInt($("speedRange").value, 10)) + "ms/手"; }
   updateSpeedLabel();
