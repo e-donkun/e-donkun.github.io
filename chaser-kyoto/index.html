@@ -904,6 +904,12 @@ def _chaser_show_line(src, n, col=None):
         out += _NL + "      | " + " " * (col - 1) + "^"
     return out
 
+# ボット(ソース非公開)を実行しているときは、エラー表示にソースの該当行を載せない。
+_hide_src = False
+
+def _chaser_with_line(head, src, n, col=None):
+    return head if _hide_src else head + _NL + _chaser_show_line(src, n, col)
+
 def _chaser_err(message, line):
     return json.dumps({"message": message, "line": line or 0}, ensure_ascii=False)
 
@@ -914,7 +920,7 @@ def _chaser_check(src, known):
     except SyntaxError as e:
         n = e.lineno or 0
         col = None if isinstance(e, IndentationError) else e.offset  # its offset isn't meaningful
-        return _chaser_err("[文法エラー] " + str(n) + "行目: " + str(e.msg) + _NL + _chaser_show_line(src, n, col), n)
+        return _chaser_err(_chaser_with_line("[文法エラー] " + str(n) + "行目: " + str(e.msg), src, n, col), n)
 
     problems = []
     for node in ast.walk(tree):
@@ -969,7 +975,7 @@ def _chaser_check(src, known):
     problems.sort()
     parts = []
     for (n, col, msg) in problems[:5]:
-        parts.append("[エラー] " + str(n) + "行目: " + msg + _NL + _chaser_show_line(src, n, col))
+        parts.append(_chaser_with_line("[エラー] " + str(n) + "行目: " + msg, src, n, col))
     if len(problems) > 5:
         parts.append("(ほか " + str(len(problems) - 5) + " 件)")
     return _chaser_err(_NL.join(parts), problems[0][0])
@@ -980,7 +986,7 @@ def _chaser_format_exc(e, src):
     if not frames:
         return _chaser_err("[実行時エラー] " + head, 0)
     last = frames[-1]
-    out = ["[実行時エラー] " + str(last.lineno) + "行目: " + head, _chaser_show_line(src, last.lineno)]
+    out = [_chaser_with_line("[実行時エラー] " + str(last.lineno) + "行目: " + head, src, last.lineno)]
     if len(frames) > 1:
         out.append("  呼び出し元: " + " ← ".join(str(f.lineno) + "行目" for f in reversed(frames[:-1])))
     return _chaser_err(_NL.join(out), last.lineno)
@@ -1103,7 +1109,7 @@ sys.modules["CHaser"] = _chaser_module
   // the warm worker pool below), well before anyone presses "対戦開始". "run" (which does
   // depend on the team/code) queues itself as `pendingRun` if warmup hasn't finished yet,
   // so this still works correctly for a worker that's spawned cold, with no warm-up at all.
-  async function runUserCode(team, code) {
+  async function runUserCode(team, code, hidden) {
     pyodide.globals.set("_team_name", team);
     try {
       pyodide.runPython(buildShim(syncMode));
@@ -1119,6 +1125,7 @@ sys.modules["CHaser"] = _chaser_module
 
     // 1) Check before running: syntax errors, undefined names, missing modules.
     pyodide.globals.set("_user_src", code);
+    pyodide.globals.set("_hide_src", !!hidden); // a loaded bot's source must not be echoed in error messages
     const problem = pyodide.runPython("_chaser_check(_user_src, list(globals().keys()))");
     if (problem) {
       const p = JSON.parse(problem);
@@ -1163,7 +1170,7 @@ sys.modules["CHaser"] = _chaser_module
         pyodide.globals.set("_native_call", syncMode ? nativeCallSync : nativeCallAsync);
         warmed = true;
         postMessage({ type: "warm" });
-        if (pendingRun) { const r = pendingRun; pendingRun = null; runUserCode(r.team, r.code); }
+        if (pendingRun) { const r = pendingRun; pendingRun = null; runUserCode(r.team, r.code, r.hidden); }
       } catch (err) {
         postMessage({ type: "crash", message: "Pyodideの初期化に失敗しました: " + ((err && err.message) ? err.message : String(err)) });
       }
@@ -1171,8 +1178,8 @@ sys.modules["CHaser"] = _chaser_module
     }
 
     if (msg.type === "run") {
-      if (!warmed) { pendingRun = { team: msg.team, code: msg.code }; return; }
-      runUserCode(msg.team, msg.code);
+      if (!warmed) { pendingRun = { team: msg.team, code: msg.code, hidden: msg.hidden }; return; }
+      runUserCode(msg.team, msg.code, msg.hidden);
     }
   };
 }
@@ -1271,7 +1278,7 @@ const CHASER_ACTIONS = ["walk", "look", "search", "put"];
 const CLIENT_RESPONSE_ERROR = ["responce[0] = @ : Response error.", "Responce Error"];
 
 class ChaserMatch {
-  constructor({ map, coolCode, hotCode, speedMs, timeoutMs, onEvent }) {
+  constructor({ map, coolCode, hotCode, coolHidden, hotHidden, speedMs, timeoutMs, onEvent }) {
     this.engine = new ChaserEngine.GameEngine(map);
     this.speedMs = speedMs == null ? 250 : speedMs;
     this.timeoutMs = timeoutMs || 5000; // TCPClient::TIMEOUT
@@ -1294,8 +1301,8 @@ class ChaserMatch {
     this._loadedWaiters = [];
     this.halted = [false, false]; // "is_disconnected": stopped by the server, loses at the next Judge()
 
-    this.workers[0] = this._spawn(0, coolCode);
-    this.workers[1] = this._spawn(1, hotCode);
+    this.workers[0] = this._spawn(0, coolCode, coolHidden);
+    this.workers[1] = this._spawn(1, hotCode, hotHidden);
   }
 
   // Resolves once both workers have loaded Pyodide (or immediately if that already
@@ -1321,7 +1328,7 @@ class ChaserMatch {
     if (queued) { this.pendingByTeam[this.current] = null; this._onCall(this.current, queued); }
   }
 
-  _spawn(team, code) {
+  _spawn(team, code, hidden) {
     // Reuse a pre-warmed worker if the pool has one (ready or still loading -- either way
     // it's already past the importScripts/network fetch, which is the slow part). Falls
     // back to a cold worker only if the pool is empty (e.g. two matches started back to back).
@@ -1332,7 +1339,7 @@ class ChaserMatch {
     worker.onerror = (ev) => { settleWarmup(worker); this._crash(team, (ev && ev.message) || "worker error"); };
     if (sab) this.syncViews[team] = new Int32Array(sab);
     if (!warm) scheduleWarmup(worker, () => worker.postMessage({ type: "warmup", pyodideUrl: PYODIDE_URL, sab }));
-    worker.postMessage({ type: "run", team: team === 0 ? "Cool" : "Hot", code });
+    worker.postMessage({ type: "run", team: team === 0 ? "Cool" : "Hot", code, hidden: !!hidden });
     return worker;
   }
 
@@ -1678,10 +1685,18 @@ class ChaserMatch {
   // 「自動くん」は常に使える組み込みボット。他のボット(ランダムウォーク/botV4など)は
   // index.html と同じ場所に置かれた bot.json から読み込む。bot.json が無い/読み込めない
   // 環境(file:// で直接開いた場合など)では「自動くん」だけが選べる。
+  //
+  // ボットのソースは見せない。読み込んでもエディタには入れず(エディタには本人のコードが
+  // そのまま残る)、localStorage にも書かない。対戦開始時に playerCode() が BOTS[id].code を
+  // 直接ワーカーへ渡すだけ。解除すると、本人のコードが入ったエディタが元通り表示される。
   const BOTS = { idle: { name: "自動くん", code: SAMPLE_BOTS.idle.code } };
   const botActive = [null, null]; // 各サイドで読み込み中のボットID、無ければnull
-  // 再読み込み後もボット設定(ソースを隠した状態)を保てるよう、ボットIDも localStorage に保存する
-  const LS_BOT_KEYS = ["chaser-kyoto:bot:cool", "chaser-kyoto:bot:hot"];
+  // 再読み込み後もボット設定(エディタを隠した状態)を保てるよう、ボットIDも localStorage に保存する。
+  // 旧バージョンはボットのソースをエディタ(と、その自動保存)に入れていたので、旧キーは別扱いにして
+  // 読み込み時に移行する(下の restoreBotState を参照)。
+  const LS_BOT_KEYS = ["chaser-kyoto:bot2:cool", "chaser-kyoto:bot2:hot"];
+  const LS_BOT_LEGACY_KEYS = ["chaser-kyoto:bot:cool", "chaser-kyoto:bot:hot"];
+  const DEFAULT_CODE = [STARTER_TEMPLATE, SAMPLE_BOTS.greedy.code]; // loadInitialCode() の初期値と同じ
   function saveBotState(team) {
     try {
       if (botActive[team]) localStorage.setItem(LS_BOT_KEYS[team], botActive[team]);
@@ -1705,14 +1720,26 @@ class ChaserMatch {
   populateBotSelect($("coolBotSelect"));
   populateBotSelect($("hotBotSelect"));
 
-  fetch("bot.json").then((r) => (r.ok ? r.json() : null)).then((data) => {
+  // bot.json の読み込みが終わった(成功でも失敗でも)ら解決する。対戦開始・ボット解除はこれを待つ。
+  let botsLoaded = false;
+  const botsReady = fetch("bot.json").then((r) => (r.ok ? r.json() : null)).then((data) => {
     if (!data || !Array.isArray(data.bots)) return;
     for (const b of data.bots) {
       if (b && b.id && b.name && typeof b.code === "string") BOTS[b.id] = { name: b.name, code: b.code };
     }
     populateBotSelect($("coolBotSelect"));
     populateBotSelect($("hotBotSelect"));
-  }).catch(() => {});
+  }).catch(() => {}).then(() => {
+    botsLoaded = true;
+    // 前回のボットが bot.json から消えた/読み込めない環境なら、ボット設定を解除する
+    for (const team of [0, 1]) if (botActive[team] && !BOTS[botActive[team]]) clearBot(team);
+  });
+
+  // 実際に実行するコード。ボット読み込み中はエディタではなくボット本体を使う。
+  function playerCode(team) {
+    const id = botActive[team];
+    return id && BOTS[id] ? BOTS[id].code : (team === 0 ? coolCM : hotCM).getValue();
+  }
 
   function setBotUI(team, active) {
     const p = team === 0 ? "cool" : "hot";
@@ -1726,39 +1753,51 @@ class ChaserMatch {
   function loadBot(team, id) {
     const bot = BOTS[id];
     if (!bot) return;
-    const cm = team === 0 ? coolCM : hotCM;
-    botActive[team] = id; // set before setValue() so its "change" event skips the #Player: directive
-    cm.setValue(bot.code);
+    botActive[team] = id; // the editor is left alone: its code comes back when the bot is cleared
     setPlayerName(team, bot.name);
     setBotUI(team, true);
     saveBotState(team);
   }
   function clearBot(team) {
+    const cm = team === 0 ? coolCM : hotCM;
     botActive[team] = null;
     setPlayerName(team, "");
     setBotUI(team, false);
     saveBotState(team);
-    (team === 0 ? coolCM : hotCM).refresh(); // fix line measurements after being display:none
+    cm.refresh(); // fix line measurements after being display:none
+    applyPlayerDirective(team, cm); // the editor's own "#Player:" line, if any, names the player again
   }
 
-  for (const [sel, team, cm] of [[$("coolBotSelect"), 0, coolCM], [$("hotBotSelect"), 1, hotCM]]) {
+  for (const [sel, team] of [[$("coolBotSelect"), 0], [$("hotBotSelect"), 1]]) {
     sel.addEventListener("change", () => {
       if (!sel.value) return;
-      if (cm.getValue().trim() && !confirm("現在のコードを置き換えます。よろしいですか?")) { sel.value = ""; return; }
-      loadBot(team, sel.value);
+      loadBot(team, sel.value); // the editor's code is kept as-is (just hidden), so nothing to confirm
       sel.value = "";
     });
   }
-  $("coolClearBot").addEventListener("click", () => clearBot(0));
-  $("hotClearBot").addEventListener("click", () => clearBot(1));
+  // bot.json の読み込み前に押されても、読み込み後の状態(消えたボットの解除など)と食い違わないよう待つ
+  $("coolClearBot").addEventListener("click", async () => { if (!botsLoaded) await botsReady; if (botActive[0]) clearBot(0); });
+  $("hotClearBot").addEventListener("click", async () => { if (!botsLoaded) await botsReady; if (botActive[1]) clearBot(1); });
 
-  // 前回ボットを読み込んだままだったサイドは、再読み込み後もボット設定の状態(ソース非表示)に戻す。
-  // コード自体は自動保存済みのものがエディタに入っている。
-  for (const team of [0, 1]) {
-    let id = null;
-    try { id = localStorage.getItem(LS_BOT_KEYS[team]); } catch (e) {}
-    if (id) { botActive[team] = id; setBotUI(team, true); }
+  // 前回ボットを読み込んだままだったサイドは、再読み込み後もボット設定の状態(エディタ非表示)に戻す。
+  function restoreBotState() {
+    for (const team of [0, 1]) {
+      let id = null, legacyId = null;
+      try { id = localStorage.getItem(LS_BOT_KEYS[team]); } catch (e) {}
+      try { legacyId = localStorage.getItem(LS_BOT_LEGACY_KEYS[team]); } catch (e) {}
+      if (legacyId) {
+        // 旧バージョンで読み込んだボットは、ソースがエディタとその自動保存に入ってしまっている。
+        // ボットの設定は引き継ぎつつ、エディタは初期コードに戻して、解除してもソースが出ないようにする。
+        try { localStorage.removeItem(LS_BOT_LEGACY_KEYS[team]); } catch (e) {}
+        id = id || legacyId;
+        botActive[team] = id; // before setValue() so its "change" event skips the #Player: directive
+        (team === 0 ? coolCM : hotCM).setValue(DEFAULT_CODE[team]);
+        saveBotState(team);
+      }
+      if (id) { botActive[team] = id; setBotUI(team, true); }
+    }
   }
+  restoreBotState();
 
   coolCM.on("change", () => applyPlayerDirective(0, coolCM));
   hotCM.on("change", () => applyPlayerDirective(1, hotCM));
@@ -2386,6 +2425,10 @@ class ChaserMatch {
   async function startMatch(startPaused) {
     const myToken = ++runToken;
     setMode(startPaused ? "paused" : "preparing");
+    if (!botsLoaded) { // a bot restored from the last visit might not be in BOTS yet
+      await botsReady;
+      if (myToken !== runToken) return;
+    }
     if (match) match.destroy();
     clearConsoles();
     clearErrorMarks();
@@ -2398,8 +2441,10 @@ class ChaserMatch {
     setLoading(true, "Pyodide を読み込み中…");
     match = new ChaserMatch({
       map: currentMap,
-      coolCode: coolCM.getValue(),
-      hotCode: hotCM.getValue(),
+      coolCode: playerCode(0),
+      hotCode: playerCode(1),
+      coolHidden: !!botActive[0], // a loaded bot's source isn't echoed in error messages
+      hotHidden: !!botActive[1],
       speedMs: speedMs(),
       onEvent: onMatchEvent,
     });
