@@ -19,11 +19,19 @@
   --danger-bg:#fdecea; --danger-text:#b3261e; --ok-bg:#e7f6ec; --ok-text:#1e7a34;
 }
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-theme="light"]){
     --bg:#17181a; --panel:#232427; --text:#f2f3f5; --muted:#9aa0a6; --border:#3a3b3e;
     --console-bg:#000000; --console-text:#d4d4d4;
     --floor:#2b2c2f; --floor-alt:#232427; --danger-bg:#3a1f1d; --danger-text:#ff6b60; --ok-bg:#123320; --ok-text:#5fd587;
   }
+}
+/* エディタ上の「ライト/ダーク」ボタンで選んだ表示(システム設定より優先) */
+:root[data-theme="light"]{color-scheme:light;}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+    --bg:#17181a; --panel:#232427; --text:#f2f3f5; --muted:#9aa0a6; --border:#3a3b3e;
+    --console-bg:#000000; --console-text:#d4d4d4;
+    --floor:#2b2c2f; --floor-alt:#232427; --danger-bg:#3a1f1d; --danger-text:#ff6b60; --ok-bg:#123320; --ok-text:#5fd587;
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:"Hiragino Sans","Yu Gothic UI","Segoe UI",system-ui,sans-serif;}
@@ -53,6 +61,10 @@ a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:no
 .tabbar button.hot.active{background:var(--hot);border-color:var(--hot);}
 .editor-toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
 .editor-toolbar .grow{flex:1;}
+.edit-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.edit-tools button{padding:6px 10px;white-space:nowrap;}
+.edit-tools .sep{width:1px;align-self:stretch;background:var(--border);margin:0 2px;}
+.edit-tools .font-size-value{font-size:12px;color:var(--muted);min-width:3.2em;text-align:center;font-variant-numeric:tabular-nums;}
 .editor-host{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .editor-host.dragover{outline:3px dashed #3fa9f5;outline-offset:-3px;}
 .CodeMirror{height:320px;font-size:13.5px;}
@@ -155,6 +167,17 @@ footer a{color:var(--muted);}
     <div class="tabbar">
       <button id="tabCool" class="active">Cool 側のコード</button>
       <button id="tabHot" class="hot">Hot 側のコード</button>
+    </div>
+
+    <div class="edit-tools" role="toolbar" aria-label="エディタの操作">
+      <button type="button" id="undoBtn" title="元に戻す(Ctrl+Z)">↶ 元に戻す</button>
+      <button type="button" id="redoBtn" title="やり直し(Ctrl+Y)">↷ やり直し</button>
+      <span class="sep"></span>
+      <button type="button" id="fontSmallerBtn" title="文字を小さくする" aria-label="文字を小さくする">A− 小さく</button>
+      <span class="font-size-value" id="fontSizeValue"></span>
+      <button type="button" id="fontLargerBtn" title="文字を大きくする" aria-label="文字を大きくする">A＋ 大きく</button>
+      <span class="sep"></span>
+      <button type="button" id="themeBtn"></button>
     </div>
 
     <div id="sideCool" class="side active">
@@ -1896,8 +1919,59 @@ class ChaserMatch {
     $("sideHot").classList.toggle("active", which === "hot");
     (which === "cool" ? coolCM : hotCM).refresh();
   }
-  $("tabCool").addEventListener("click", () => selectTab("cool"));
-  $("tabHot").addEventListener("click", () => selectTab("hot"));
+  $("tabCool").addEventListener("click", () => { selectTab("cool"); updateUndoButtons(); });
+  $("tabHot").addEventListener("click", () => { selectTab("hot"); updateUndoButtons(); });
+
+  // ---- editor tools: undo / redo / font size / light-dark ------------------------------
+  const EDIT_PREFS_KEY = "chaser-kyoto:edit-prefs";
+  let editPrefs = {};
+  try { editPrefs = JSON.parse(localStorage.getItem(EDIT_PREFS_KEY) || "{}") || {}; } catch (e) {}
+  function saveEditPrefs() { try { localStorage.setItem(EDIT_PREFS_KEY, JSON.stringify(editPrefs)); } catch (e) {} }
+  function activeCM() { return $("sideHot").classList.contains("active") ? hotCM : coolCM; }
+
+  function updateUndoButtons() {
+    const h = activeCM().historySize();
+    $("undoBtn").disabled = h.undo === 0;
+    $("redoBtn").disabled = h.redo === 0;
+  }
+  $("undoBtn").addEventListener("click", () => { const cm = activeCM(); cm.undo(); cm.focus(); updateUndoButtons(); });
+  $("redoBtn").addEventListener("click", () => { const cm = activeCM(); cm.redo(); cm.focus(); updateUndoButtons(); });
+  coolCM.on("changes", updateUndoButtons);
+  hotCM.on("changes", updateUndoButtons);
+
+  const FONT_MIN = 10, FONT_MAX = 28, FONT_DEFAULT = 14;
+  function applyFontSize(px) {
+    px = Math.max(FONT_MIN, Math.min(FONT_MAX, px));
+    editPrefs.fontSize = px;
+    for (const cm of [coolCM, hotCM]) { cm.getWrapperElement().style.fontSize = px + "px"; cm.refresh(); }
+    $("fontSizeValue").textContent = px + "px";
+    $("fontSmallerBtn").disabled = px <= FONT_MIN;
+    $("fontLargerBtn").disabled = px >= FONT_MAX;
+  }
+  $("fontSmallerBtn").addEventListener("click", () => { applyFontSize(editPrefs.fontSize - 2); saveEditPrefs(); });
+  $("fontLargerBtn").addEventListener("click", () => { applyFontSize(editPrefs.fontSize + 2); saveEditPrefs(); });
+
+  const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+  function currentTheme() { return editPrefs.theme || (systemDark && systemDark.matches ? "dark" : "light"); }
+  function applyTheme() {
+    const theme = currentTheme();
+    if (editPrefs.theme) document.documentElement.dataset.theme = theme;
+    else delete document.documentElement.dataset.theme;
+    for (const cm of [coolCM, hotCM]) cm.setOption("theme", theme === "dark" ? "dracula" : "default");
+    // ボタンには「押すとどちらになるか」を表示する
+    $("themeBtn").textContent = theme === "dark" ? "☀️ ライトモード" : "🌙 ダークモード";
+    $("themeBtn").title = theme === "dark" ? "明るい表示に切り替える" : "暗い表示に切り替える";
+  }
+  $("themeBtn").addEventListener("click", () => {
+    editPrefs.theme = currentTheme() === "dark" ? "light" : "dark";
+    applyTheme(); saveEditPrefs();
+  });
+  if (systemDark && systemDark.addEventListener) systemDark.addEventListener("change", applyTheme);
+
+  applyFontSize(typeof editPrefs.fontSize === "number" ? editPrefs.fontSize : FONT_DEFAULT);
+  applyTheme();
+  coolCM.clearHistory(); hotCM.clearHistory(); // 読み込んだ初期コードは「元に戻す」の対象にしない
+  updateUndoButtons();
 
   // ---- help dialog -----------------------------------------------------------------------
   $("openHelp").addEventListener("click", () => $("helpDialog").showModal());
