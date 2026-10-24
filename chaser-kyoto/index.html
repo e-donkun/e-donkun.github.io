@@ -198,6 +198,7 @@ footer a{color:var(--muted);}
     <button type="button" id="panelFullscreenBtn" class="panel-fullscreen-btn" title="ゲーム画面を最大化">⛶</button>
     <div class="controls-row">
       <select id="mapSelect">
+        <option value="default" selected>default</option>
         <option value="random">ランダムマップ</option>
         <optgroup label="2025年 京都大会" id="kyoto2025OptGroup"></optgroup>
         <option value="custom">アップロードしたマップ</option>
@@ -2010,8 +2011,12 @@ class ChaserMatch {
     $("mapSelect").value = selected;
   }).catch(() => {});
 
+  // ページを開いたときに最初から選ばれているマップ
+  const DEFAULT_MAP_TEXT = "N:default\nT:120\nS:15,17\nD:0,0,0,0,0,0,0,0,0,3,0,0,0,0,0\nD:0,0,0,0,0,2,2,3,0,2,0,0,3,2,0\nD:0,0,0,0,0,3,0,0,0,3,0,0,0,3,0\nD:0,3,0,3,0,0,0,3,0,0,0,3,0,0,3\nD:0,0,0,0,3,0,3,0,0,2,0,0,0,3,0\nD:0,2,2,3,0,2,0,0,3,2,3,0,3,2,0\nD:0,3,0,0,0,3,0,0,0,3,0,0,0,3,0\nD:0,0,0,3,0,0,3,0,0,0,0,3,0,0,0\nD:3,0,3,2,0,3,0,3,0,3,0,2,3,0,3\nD:0,0,0,3,0,0,0,0,3,0,0,3,0,0,0\nD:0,3,0,0,0,3,0,0,0,3,0,0,0,3,0\nD:0,2,3,0,3,2,3,0,0,2,0,3,2,2,0\nD:0,3,0,0,0,2,0,0,3,0,3,0,0,0,0\nD:3,0,0,3,0,0,0,3,0,0,0,3,0,3,0\nD:0,3,0,0,0,3,0,0,0,3,0,0,0,0,0\nD:0,2,3,0,0,2,0,3,2,2,0,0,0,0,0\nD:0,0,0,0,0,3,0,0,0,0,0,0,0,0,0\nC:1,1\nH:13,15\n";
+
   function buildMap() {
     const choice = $("mapSelect").value;
+    if (choice === "default") return ChaserEngine.parseMapText(DEFAULT_MAP_TEXT);
     if (choice.startsWith("kyoto2025-")) {
       const key = choice.slice("kyoto2025-".length);
       if (KYOTO_2025_MAPS[key]) return ChaserEngine.parseMapText(KYOTO_2025_MAPS[key].text);
