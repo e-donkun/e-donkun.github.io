@@ -1967,16 +1967,34 @@ class ChaserMatch {
   // map.json は maps/ フォルダから scripts/build-map-json.php で生成する。
   const KYOTO_2025_MAPS = {};
 
+  // "group" を持つマップ(maps/<グループ名>/ のもの)は、そのグループ名の見出しを別に作って並べる
   function populateKyotoOptGroup() {
     const group = $("kyoto2025OptGroup");
     group.innerHTML = "";
-    group.hidden = Object.keys(KYOTO_2025_MAPS).length === 0; // map.json がまだ/読み込めないときは出さない
+    document.querySelectorAll("#mapSelect optgroup.extra-map-group").forEach((g) => g.remove());
+    const extraGroups = {};
+    let insertAfter = group;
     for (const key of Object.keys(KYOTO_2025_MAPS)) {
+      const m = KYOTO_2025_MAPS[key];
       const opt = document.createElement("option");
       opt.value = "kyoto2025-" + key;
-      opt.textContent = KYOTO_2025_MAPS[key].label.replace("2025年 京都大会 ", "");
-      group.appendChild(opt);
+      if (m.group) {
+        if (!extraGroups[m.group]) {
+          const g = document.createElement("optgroup");
+          g.label = m.group;
+          g.className = "extra-map-group";
+          insertAfter.after(g);
+          insertAfter = g;
+          extraGroups[m.group] = g;
+        }
+        opt.textContent = m.label;
+        extraGroups[m.group].appendChild(opt);
+      } else {
+        opt.textContent = m.label.replace("2025年 京都大会 ", "");
+        group.appendChild(opt);
+      }
     }
+    group.hidden = group.children.length === 0; // map.json がまだ/読み込めないときは出さない
   }
   populateKyotoOptGroup();
 
