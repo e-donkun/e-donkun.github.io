@@ -248,7 +248,7 @@ footer a{color:var(--muted);}
       <button id="resetBtn">↻ リセット</button>
       <button id="swapBtn" title="Cool と Hot のプログラム(とプレイヤー名)をそのまま入れ替えます">⇔ Cool・Hot入れ替え</button>
       <label>速さ
-        <input type="range" id="speedRange" min="0" max="600" value="100" step="10">
+        <input type="range" id="speedRange" min="0" max="600" value="400" step="10">
         <span class="speed-value" id="speedValue"></span>
       </label>
       <button type="button" id="logToggle" aria-controls="log" aria-expanded="false">対戦ログ▼</button>
@@ -332,6 +332,9 @@ footer a{color:var(--muted);}
       <li><code>get_ready()</code> / <code>walk_up()</code> などの個別メソッドに加えて、
           文字列で指定する <code>cl.cmd("wu")</code> 形式(本家CHaser.pyと同じ2文字コマンド)にも対応しています。
           ただし本家と同じく <code>cl.cmd("gr")</code> では get_ready できない(エラーで終了する)ので、get_ready() を使ってください。</li>
+      <li><code>from CHaser import walk, put, look, search, up, left, right, down</code> して
+          <code>cl.play(walk, down)</code> のように書く形式にも対応しています。
+          <code>def main():</code> 内の <code>yield</code> だけの行は無視されるので、<code>if __name__ == "__main__": main()</code> でそのまま動きます。</li>
       <li><code>import CHaser</code> をせず、あらかじめ用意されている <code>client</code> という変数をそのまま使うこともできます。</li>
       <li>非同期モードでは自動的に <code>await</code> が補われるので、基本的にはそのままで動きます。
           うまく動かないときだけ、上の説明の通り自分で <code>await</code> を追加してみてください。</li>
@@ -799,7 +802,7 @@ def _autoasyncify(source):
         "get_ready", "walk_up", "walk_down", "walk_left", "walk_right",
         "look_up", "look_down", "look_left", "look_right",
         "search_up", "search_down", "search_left", "search_right",
-        "put_up", "put_down", "put_left", "put_right", "cmd",
+        "put_up", "put_down", "put_left", "put_right", "cmd", "play",
     }
 
     def target_name(call):
@@ -823,10 +826,13 @@ def _autoasyncify(source):
     def contains_yield(func_node):
         return any(isinstance(n, (ast.Yield, ast.YieldFrom)) for n in own_scope_nodes(func_node))
 
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return None
+    if isinstance(source, ast.AST):
+        tree = source
+    else:
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return None
 
     already_awaited_ids = {
         id(n.value) for n in ast.walk(tree)
@@ -991,9 +997,21 @@ def _chaser_format_exc(e, src):
         out.append("  呼び出し元: " + " ← ".join(str(f.lineno) + "行目" for f in reversed(frames[:-1])))
     return _chaser_err(_NL.join(out), last.lineno)
 
+# A statement that is just \`yield\` (e.g. "yield  # ここで一旦停止") would turn main() into a
+# generator that never runs. Turn such lines into \`pass\` so main() runs normally; the
+# simulator already pauses at every get_ready()/action call.
+class _ChaserStripYield(ast.NodeTransformer):
+    def visit_Expr(self, node):
+        if isinstance(node.value, (ast.Yield, ast.YieldFrom)):
+            return ast.copy_location(ast.Pass(), node)
+        return node
+
 async def _chaser_exec(src, transform):
-    tree = _autoasyncify(src) if transform else None
-    code = compile(tree if tree is not None else src, _USER_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    tree = ast.parse(src, _USER_FILE)
+    tree = ast.fix_missing_locations(_ChaserStripYield().visit(tree))
+    if transform:
+        tree = _autoasyncify(tree) or tree
+    code = compile(tree, _USER_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
     try:
         r = eval(code, globals())
         if inspect.iscoroutine(r):
@@ -1086,6 +1104,13 @@ class _Client:
 
 ${methodSrc}
 
+    # client.play(walk, down) style (walk/down etc. are constants exported by CHaser)
+    ${asyncKw}def play(self, action, direction=""):
+        self.count += 1
+        if action == "ready":
+            return self._conv(${awaitKw}_native_call("ready", ""))
+        return self._conv(${awaitKw}_native_call(str(action), str(direction)))
+
     ${asyncKw}def cmd(self, s="gr"):
         self.count += 1
         action, direction = _parse_cmd(s)
@@ -1099,6 +1124,8 @@ client = _Client()
 import sys, types
 _chaser_module = types.ModuleType("CHaser")
 _chaser_module.Client = _Client
+for _n in ("walk", "put", "look", "search", "up", "down", "left", "right"):
+    setattr(_chaser_module, _n, _n)
 sys.modules["CHaser"] = _chaser_module
 `;
   }
