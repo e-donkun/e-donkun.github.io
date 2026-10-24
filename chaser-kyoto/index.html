@@ -335,6 +335,8 @@ footer a{color:var(--muted);}
       <li><code>from CHaser import walk, put, look, search, up, left, right, down</code> して
           <code>cl.play(walk, down)</code> のように書く形式にも対応しています。
           <code>def main():</code> 内の <code>yield</code> だけの行は無視されるので、<code>if __name__ == "__main__": main()</code> でそのまま動きます。</li>
+      <li><code>CHaser</code>、<code>walk</code> / <code>put</code> / <code>look</code> / <code>search</code> / <code>up</code> / <code>down</code> / <code>left</code> / <code>right</code>、<code>random</code> は
+          import を書かなくても最初から使えます(書いてあってもそのまま動きます)。</li>
       <li><code>import CHaser</code> をせず、あらかじめ用意されている <code>client</code> という変数をそのまま使うこともできます。</li>
       <li>非同期モードでは自動的に <code>await</code> が補われるので、基本的にはそのままで動きます。
           うまく動かないときだけ、上の説明の通り自分で <code>await</code> を追加してみてください。</li>
@@ -1126,6 +1128,12 @@ _chaser_module = types.ModuleType("CHaser")
 _chaser_module.Client = _Client
 for _n in ("walk", "put", "look", "search", "up", "down", "left", "right"):
     setattr(_chaser_module, _n, _n)
+
+# import しなくても CHaser / walk・up などの定数 / random をそのまま使えるようにする
+import random
+CHaser = _chaser_module
+walk, put, look, search = "walk", "put", "look", "search"
+up, down, left, right = "up", "down", "left", "right"
 sys.modules["CHaser"] = _chaser_module
 `;
   }
