@@ -337,6 +337,7 @@ footer a{color:var(--muted);}
           <code>def main():</code> 内の <code>yield</code> だけの行は無視されるので、<code>if __name__ == "__main__": main()</code> でそのまま動きます。</li>
       <li><code>CHaser</code>、<code>walk</code> / <code>put</code> / <code>look</code> / <code>search</code> / <code>up</code> / <code>down</code> / <code>left</code> / <code>right</code>、<code>random</code> は
           import を書かなくても最初から使えます(書いてあってもそのまま動きます)。</li>
+      <li><code>def main():</code> を定義して呼び出していない場合は、自動で <code>main()</code> を実行します。</li>
       <li><code>import CHaser</code> をせず、あらかじめ用意されている <code>client</code> という変数をそのまま使うこともできます。</li>
       <li>非同期モードでは自動的に <code>await</code> が補われるので、基本的にはそのままで動きます。
           うまく動かないときだけ、上の説明の通り自分で <code>await</code> を追加してみてください。</li>
@@ -1014,10 +1015,17 @@ async def _chaser_exec(src, transform):
     if transform:
         tree = _autoasyncify(tree) or tree
     code = compile(tree, _USER_FILE, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    # def main(): を書いただけで呼び出していないプログラムは、main() を自動で呼ぶ
+    defines_main = any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "main" for n in tree.body)
+    calls_main = any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "main" for n in ast.walk(tree))
     try:
         r = eval(code, globals())
         if inspect.iscoroutine(r):
             await r
+        if defines_main and not calls_main:
+            r = globals()["main"]()
+            if inspect.iscoroutine(r):
+                await r
     except SystemExit:
         return ""
     except BaseException as e:
