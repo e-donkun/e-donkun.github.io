@@ -53,7 +53,7 @@ button:hover:not(:disabled){filter:brightness(1.08);}
 a.help-link{color:var(--accent);cursor:pointer;font-size:13px;text-decoration:none;}
 .layout{display:grid;grid-template-columns:1fr;gap:14px;max-width:1500px;margin:0 auto;padding:14px;}
 @media (min-width:1050px){ .layout{grid-template-columns: 1fr 1fr;} }
-.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.panel{min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;}
 .panel h2{font-size:14px;margin:0;color:var(--muted);font-weight:600;letter-spacing:.02em;}
 .tabbar{display:flex;gap:6px;}
 .tabbar button{flex:1;border-radius:8px 8px 0 0;border-bottom:none;}
@@ -169,17 +169,6 @@ footer a{color:var(--muted);}
       <button id="tabHot" class="hot">Hot 側のコード</button>
     </div>
 
-    <div class="edit-tools" role="toolbar" aria-label="エディタの操作">
-      <button type="button" id="undoBtn" title="元に戻す(Ctrl+Z)">↶ 元に戻す</button>
-      <button type="button" id="redoBtn" title="やり直し(Ctrl+Y)">↷ やり直し</button>
-      <span class="sep"></span>
-      <button type="button" id="fontSmallerBtn" title="文字を小さくする" aria-label="文字を小さくする">A− 小さく</button>
-      <span class="font-size-value" id="fontSizeValue"></span>
-      <button type="button" id="fontLargerBtn" title="文字を大きくする" aria-label="文字を大きくする">A＋ 大きく</button>
-      <span class="sep"></span>
-      <button type="button" id="themeBtn"></button>
-    </div>
-
     <div id="sideCool" class="side active">
       <div class="editor-toolbar">
         <select id="coolBotSelect">
@@ -193,6 +182,16 @@ footer a{color:var(--muted);}
         <button id="coolClearBot" style="display:none;">ボットの設定を解除する</button>
       </div>
       <div class="controls-row"><label for="coolName" class="small">プレイヤー名</label><input type="text" id="coolName" class="name-input" placeholder="Cool" maxlength="20"></div>
+      <div class="edit-tools" role="toolbar" aria-label="エディタの操作">
+        <button type="button" id="undoBtn" title="元に戻す(Ctrl+Z)">↶ 元に戻す</button>
+        <button type="button" id="redoBtn" title="やり直し(Ctrl+Y)">↷ やり直し</button>
+        <span class="sep"></span>
+        <button type="button" id="fontSmallerBtn" title="文字を小さくする" aria-label="文字を小さくする">A− 小さく</button>
+        <span class="font-size-value" id="fontSizeValue"></span>
+        <button type="button" id="fontLargerBtn" title="文字を大きくする" aria-label="文字を大きくする">A＋ 大きく</button>
+        <span class="sep"></span>
+        <button type="button" id="themeBtn"></button>
+      </div>
       <div class="editor-host" id="coolEditorHost"><textarea id="coolEditor"></textarea></div>
       <div class="controls-row"><span class="badge cool">Cool</span><span class="small" id="coolAutosave"></span></div>
       <div class="console code-mono" id="coolConsole"></div>
@@ -1815,6 +1814,13 @@ class ChaserMatch {
     $(p + "EditorHost").style.display = active ? "none" : "";
     $(p + "ClearBot").style.display = active ? "" : "none";
     $(p + "Name").disabled = active;
+    updateEditToolsVisibility();
+  }
+
+  // ボットを読み込んでいる側(エディタが隠れている側)では、エディタ操作ボタンも隠す
+  function updateEditToolsVisibility() {
+    const host = $($("sideHot").classList.contains("active") ? "hotEditorHost" : "coolEditorHost");
+    document.querySelector(".edit-tools").style.display = host.style.display === "none" ? "none" : "";
   }
 
   function loadBot(team, id) {
@@ -1917,6 +1923,10 @@ class ChaserMatch {
     $("tabHot").classList.toggle("active", which === "hot");
     $("sideCool").classList.toggle("active", which === "cool");
     $("sideHot").classList.toggle("active", which === "hot");
+    // エディタ操作ボタンは1組だけなので、表示中の側の「プレイヤー名」の下へ移す
+    const host = $(which === "cool" ? "coolEditorHost" : "hotEditorHost");
+    host.parentNode.insertBefore(document.querySelector(".edit-tools"), host);
+    updateEditToolsVisibility();
     (which === "cool" ? coolCM : hotCM).refresh();
   }
   $("tabCool").addEventListener("click", () => { selectTab("cool"); updateUndoButtons(); });
