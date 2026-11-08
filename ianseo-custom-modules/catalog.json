@@ -1,0 +1,384 @@
+{
+	"title": "ianseo カスタムモジュール",
+	"generated": "2026-10-18 12:01:34",
+	"generator": "kyoto-ianseo / build_module_site.py",
+	"modules": [
+		{
+			"id": "Award",
+			"name": "賞状PDF出力",
+			"description": "賞状の用紙・縦書き/横書き・文字の配置・公印をテンプレートとして保存し、予選の順位（部門・クラスごと）や手入力から賞状の PDF を出力する。発行履歴を残し、あとから再印刷できる。",
+			"version": "2.0.1",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Award",
+			"testedIanseo": "2026-03-01 rev 255",
+			"requiresPhp": "7.4",
+			"changelog": [
+				{
+					"version": "2.0.1",
+					"date": "2026-09-26",
+					"notes": "サーバーの mbstring の内部エンコーディングが UTF-8 以外のとき、縦書きの文字が回ったりずれたりするのを直した"
+				},
+				{
+					"version": "2.0.0",
+					"date": "2026-09-26",
+					"notes": "賞状の設定をテンプレート（data/templates に JSON）として複数持てるようにした。用紙の画像（画面だけに表示）、テキストボックスの配置、公印の画像、発行履歴と再印刷を追加"
+				},
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報を追加"
+				}
+			],
+			"download": "Award-2.0.1.zip",
+			"sha256": "e6592a737984596fcf8d3b4cc128c088451903ace76a8f97d227d22ac593391c",
+			"size": 5478071,
+			"updated": "2026-09-30"
+		},
+		{
+			"id": "BackgroundColor",
+			"name": "背景色",
+			"description": "ianseo の画面の背景色を、設定の画面で選んだ色にする。ianseo の更新で元に戻らない。",
+			"version": "1.1.0",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#BackgroundColor",
+			"testedIanseo": "2026-03-01",
+			"changelog": [
+				{
+					"version": "1.1.0",
+					"date": "2026-09-30",
+					"notes": "背景色の設定の画面（モジュール → 背景色）を追加し、色を選べるようにした"
+				},
+				{
+					"version": "1.0.0",
+					"date": "2026-09-30",
+					"notes": "初版"
+				}
+			],
+			"download": "BackgroundColor-1.1.0.zip",
+			"sha256": "5e265f657c347723367fa1a0158bc4876c2cbb2a47c6b0c47251458288d86c72",
+			"size": 6579,
+			"updated": "2026-09-30"
+		},
+		{
+			"id": "CardManual",
+			"name": "バッジ手入力出力",
+			"description": "ゼッケン・名前などを手で入力して、バッジ（ID カード）の PDF を出力する。",
+			"version": "1.0.0",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#CardManual",
+			"testedIanseo": "2026-03-01 rev 255",
+			"changelog": [
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報を追加"
+				}
+			],
+			"download": "CardManual-1.0.0.zip",
+			"sha256": "885ec274987d25e145573006d6c06bcfbcd71756139f45157c2d34963273c684",
+			"size": 14055,
+			"updated": "2026-09-26"
+		},
+		{
+			"id": "CustomPrintScore",
+			"name": "スコアカード印刷（カスタム）",
+			"description": "予選のスコアカード印刷のカスタム版（標準のスコアカードの書式を調整し、予備のブランクスコアカードも印刷できる）。個人・団体決勝の予備のブランクスコアカードも印刷できる。",
+			"version": "1.1.0",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#CustomPrintScore",
+			"testedIanseo": "2026-03-01 rev 255",
+			"changelog": [
+				{
+					"version": "1.1.0",
+					"date": "2026-10-13",
+					"notes": "個人決勝・団体決勝のメニューに「スコアカードを印刷（カスタム）」を追加し、予備のブランクスコアカード（1試合1枚）を印刷できるようにした"
+				},
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報を追加"
+				}
+			],
+			"download": "CustomPrintScore-1.1.0.zip",
+			"sha256": "412967807ceae8191ee70210862552ee2d307e673112e96e05cf1e9cb4653dc9",
+			"size": 20359,
+			"updated": "2026-10-13"
+		},
+		{
+			"id": "Duplicate",
+			"name": "既存の試合から新規作成",
+			"description": "選んだ試合の設定（部門・クラス・種目・セッション・スケジュールなど）をコピーして、新しい試合を作る。",
+			"version": "1.0.0",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Duplicate",
+			"testedIanseo": "2026-03-01 rev 255",
+			"changelog": [
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報を追加"
+				}
+			],
+			"download": "Duplicate-1.0.0.zip",
+			"sha256": "4886635ed78b8a80154a3069b8942531a5f5b34802621cf3a79fa0bec4b96e55",
+			"size": 9323,
+			"updated": "2026-09-26"
+		},
+		{
+			"id": "IskConnDiag",
+			"name": "ISK接続診断",
+			"description": "Scorekeeper NG がサーバーにつながらないときの切り分け用。設定の確認、サーバーからの到達テスト、アプリの通信の記録（検証用 QR コード）、スマホのブラウザからの到達テストができる。",
+			"version": "1.1.0",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#IskConnDiag",
+			"testedIanseo": "2026-03-01 rev 255",
+			"changelog": [
+				{
+					"version": "1.1.0",
+					"date": "2026-10-12",
+					"notes": "Windows PC 用の中継プログラム（proxy/isk_proxy.py）とダウンロードを追加。QR コードの表示を修正"
+				},
+				{
+					"version": "1.0.0",
+					"date": "2026-10-12",
+					"notes": "初版"
+				}
+			],
+			"download": "IskConnDiag-1.1.0.zip",
+			"sha256": "039e0ff4003b432f4294c632600b59733ee7c4e448c378c48b12300e15876c41",
+			"size": 45421,
+			"updated": "2026-10-12"
+		},
+		{
+			"id": "IskLiteDevices",
+			"name": "ISK端末一覧（Lite）",
+			"description": "ISK-NG Lite の大会で、つながっている端末の一覧を表示する。",
+			"version": "1.0.0",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#IskLiteDevices",
+			"testedIanseo": "2026-03-01 rev 255",
+			"changelog": [
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報を追加"
+				}
+			],
+			"download": "IskLiteDevices-1.0.0.zip",
+			"sha256": "b6bedcada9f7b65d223a5a29824925bce49d43bc7664054b23f10ea6bde504a5",
+			"size": 13980,
+			"updated": "2026-09-26"
+		},
+		{
+			"id": "LiveScoreboard",
+			"name": "ライブ得点集計",
+			"description": "セッションごとの得点をライブで集計して表示する。",
+			"version": "1.11.2",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#LiveScoreboard",
+			"testedIanseo": "2026-03-01 rev 255",
+			"changelog": [
+				{
+					"version": "1.11.2",
+					"date": "2026-10-18",
+					"notes": "個人の得点表：スマホなどで表を横にスクロールしても、選手名の列を左端に残す"
+				},
+				{
+					"version": "1.11.1",
+					"date": "2026-10-12",
+					"notes": "決勝サイネージ：表の見出しをセットポイントの点数と同じ文字の大きさで 1 行に収め、はみ出す分は … で省略する"
+				},
+				{
+					"version": "1.11.0",
+					"date": "2026-10-12",
+					"notes": "決勝サイネージ：更新があったマス（ポイント・セットポイントの各段・選手／チーム）を黄色で 3 秒点滅させ、2 分間薄い黄色で残す。上の見出しを大会名にし、スケジュールはその下に標準の文字の大きさで出す"
+				},
+				{
+					"version": "1.10.3",
+					"date": "2026-10-12",
+					"notes": "決勝サイネージ：文字を大きくしてもセットポイントは省略しない（列を中身に合わせて広げる）。チームの列は 1 行に収め、はみ出す分は … で省略する"
+				},
+				{
+					"version": "1.10.2",
+					"date": "2026-10-12",
+					"notes": "決勝サイネージ：選手名・団体メンバーを、名前の並び設定によらず「姓 名」の順で出す（メンバーは登録順）"
+				},
+				{
+					"version": "1.10.1",
+					"date": "2026-10-12",
+					"notes": "決勝サイネージ：セットポイントを左寄せにした。左右で同じ的のときは的番号を 2A / 2B のように出す"
+				},
+				{
+					"version": "1.10.0",
+					"date": "2026-10-12",
+					"notes": "決勝（個人・団体のマッチ戦）のサイネージ（SignageFinal.php）を追加。実況ビューと同じ内容を、スケジュールごとに 1 試合 1 行で出す（イベント・的番号・選手またはチーム（予選順位・所属またはメンバー）・ポイント・セットポイント 2 段）。勝った側は黄色。縦に収まらないときだけスクロールする。パネルは 予選へのボタン・＜ スケジュール ＞・文字・速さ・一時停止。Signage.php のパネルから決勝へ移れるようにした"
+				},
+				{
+					"version": "1.9.1",
+					"date": "2026-10-12",
+					"notes": "サイネージ：TOP10 で絞り込んだ表は、部門名の後ろに TOP10 と出すようにした"
+				},
+				{
+					"version": "1.9.0",
+					"date": "2026-10-12",
+					"notes": "サイネージ：画面のタップで一時停止・再開を切り替え、一時停止中は右下のパネルを濃く出すようにした。部門の表に 10 名以上いるときは、個人のボタンを「個人全て」「個人TOP10」（どちらか一方だけ ON）にし、TOP10 では各表の上位 10 人（10 位と同順位の人は含める）だけを流すようにした（URL の top=10）"
+				},
+				{
+					"version": "1.8.1",
+					"date": "2026-10-12",
+					"notes": "決勝のトーナメント表：試合前は的番号だけを、上下それぞれの側に出すようにした（開始時間は出さない。同じ的なら T#2A / T#2B）。Bye は、相手が不戦勝（Tie=2）のときだけ出すようにした（前の試合が終わっていないだけのときに Bye と出ていた）"
+				},
+				{
+					"version": "1.8.0",
+					"date": "2026-10-06",
+					"notes": "スコアカードをクリックすると QR コードが開く不具合を直した（スコアカードのダイアログを id で取る）。文字の大きさを、画面の幅に合わせて 10〜18pt に拡大し（clamp(10pt, 1.3vw, 18pt)）、表が画面の幅を超えるときは、ページ全体ではなく表の箱の中だけを横スクロールにした"
+				},
+				{
+					"version": "1.7.2",
+					"date": "2026-10-06",
+					"notes": "QR コードの URL を、ショートコードではなく、カスタムモジュールまでの正規の URL（LiveScoreboard.php?Tour=大会コード）にした。個人予選・団体予選・決勝の文字の大きさを、画面の幅に合わせず 12pt の固定にした"
+				},
+				{
+					"version": "1.7.1",
+					"date": "2026-10-06",
+					"notes": "右上の「大会情報を閲覧」と QR コードのボタンを、ianseo にログインして同じ大会を開いているときだけ出すようにした（ほかは何も出さない。旧「大会情報参照」リンクも廃止）。リンクと QR コードの URL は、動かしているサイトから作る（ドメインを書かない）"
+				},
+				{
+					"version": "1.7.0",
+					"date": "2026-10-06",
+					"notes": "ianseo の標準メニューの表示をやめ、画面の右上に、大会情報（Main.php）を閲覧するリンクと、この大会のライブ得点集計の QR コードを出すボタンだけを出すようにした"
+				},
+				{
+					"version": "1.6.1",
+					"date": "2026-10-06",
+					"notes": "ianseo にログインして開いたとき、ページの先頭（DOCTYPE の前）に Menu.php の出力が出て、ブラウザが互換モードになり、所属などの長い文字が列からはみ出す不具合を直した。あわせて、互換モードになっても表の文字の大きさが変わらないようにした"
+				},
+				{
+					"version": "1.6.0",
+					"date": "2026-10-06",
+					"notes": "ランキングラウンドのボタンを、複数のクラスをまとめている種目（部門・性別・距離が同じ）があるときだけ出すようにした。クラスごとの順位と同じ内容になる大会では出さない。距離の名前は、全角・半角、大文字・小文字、空白の違いがあっても同じ距離として扱う"
+				},
+				{
+					"version": "1.5.0",
+					"date": "2026-10-06",
+					"notes": "団体予選を、得点の入力前でも、団体の設定（種目・団体に出る選手）があれば出すようにした（チームの組み方を見られる）。得点が入ってランキングに載ったチームの後ろに、まだ載っていない国を順位なしで続ける。また、団体予選を出す条件を、画面が読む Teams（TeFinEvent=1）に合わせた"
+				},
+				{
+					"version": "1.4.0",
+					"date": "2026-10-01",
+					"notes": "団体予選（LiveScoreboardTeam.php）と個人・団体の決勝（LiveScoreboardFinal.php）を追加し、3 つの画面を共通のパネルで切り替えられるようにした。サイネージ（Signage.php）で団体予選も流せるようにし、自動更新を 30 秒（書き換えがあれば 5 秒）にした"
+				},
+				{
+					"version": "1.3.0",
+					"date": "2026-09-28",
+					"notes": "距離別をメニューから切り替えられるようにし（全セッションで集計）、30ｍ と 30m を同じ距離にまとめ、X・10 点の並びを大会の見出しに合わせる"
+				},
+				{
+					"version": "1.2.0",
+					"date": "2026-09-27",
+					"notes": "距離別（Order=Distance、裏メニュー）を追加"
+				},
+				{
+					"version": "1.1.0",
+					"date": "2026-09-26",
+					"notes": "サイネージ表示（Signage.php）を追加"
+				},
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報を追加"
+				}
+			],
+			"download": "LiveScoreboard-1.11.2.zip",
+			"sha256": "df1329dcc84700f3d2de21e4239c7d2a548599809ef2112af6e71be7b364b6ea",
+			"size": 516708,
+			"updated": "2026-10-18"
+		},
+		{
+			"id": "ModuleManager",
+			"name": "カスタムモジュール管理",
+			"description": "カスタムモジュールの有効・無効の切り替え、配布サイトのカタログから選んでインストール・更新・更新の確認、zip からのインストール、削除、配布用パッケージの作成をする（WordPress のプラグイン管理のような画面）。",
+			"version": "1.3.1",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#ModuleManager",
+			"testedIanseo": "2026-03-01 rev 255",
+			"requiresPhp": "8.0",
+			"changelog": [
+				{
+					"version": "1.3.1",
+					"date": "2026-09-30",
+					"notes": "画面の表とカードを、本体の大会情報一覧などと同じく横いっぱいに出すようにした"
+				},
+				{
+					"version": "1.3.0",
+					"date": "2026-09-26",
+					"notes": "配布サイトのダウンロードページ（site/index.html）を追加。パッケージ作成の画面からダウンロードできる"
+				},
+				{
+					"version": "1.2.0",
+					"date": "2026-09-26",
+					"notes": "更新の確認を追加（更新があればメニューの「モジュール」「カスタムモジュール」に数のバッジを出す。インストール済みの画面に更新のお知らせと「今すぐ更新」）\nインストール済みの表の状態の列を折り返さないようにした"
+				},
+				{
+					"version": "1.1.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報（動作確認した ianseo の版、必要な ianseo・PHP の版、変更履歴など）を追加\n配布サイトのカタログから選んでインストール\nパッケージ作成（zip と catalog.json）を追加"
+				},
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "初版"
+				}
+			],
+			"download": "ModuleManager-1.3.1.zip",
+			"sha256": "3bab55822e42ab53176dbc18962415299e839766b6a657152cd2b5a07c6f5abc",
+			"size": 45133,
+			"updated": "2026-09-30"
+		},
+		{
+			"id": "SmartphoneMode",
+			"name": "スマホモード",
+			"description": "参加者リスト（IRM を含む）・的番号設定・スコアカード修正・ライブ得点集計・印刷を、スマホで使いやすい画面にしたもの。",
+			"version": "1.3.3",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#SmartphoneMode",
+			"testedIanseo": "2026-03-01 rev 255",
+			"changelog": [
+				{
+					"version": "1.3.3",
+					"date": "2026-10-01",
+					"notes": "印刷のスコアカードは、カスタム版（CustomPrintScore）で全セッションを1つのPDFにまとめて出す、ボタン1つにした（カスタム版が使えないときは標準版でセッションごと）"
+				},
+				{
+					"version": "1.3.2",
+					"date": "2026-10-01",
+					"notes": "印刷のスコアカードに、ISK の設定用QRコードを印字するようにした"
+				},
+				{
+					"version": "1.3.1",
+					"date": "2026-10-01",
+					"notes": "印刷のスコアカードが空の1ページしか出なかったのを直し、セッションを選んで印刷するようにした。決勝の組合せは、種目に決勝の設定があるときだけ表示"
+				},
+				{
+					"version": "1.3.0",
+					"date": "2026-10-01",
+					"notes": "スマホでトップページを開くとスマホモードへのボタンを出し、スマホモードの試合の選択（Select.php）から試合を開けるようにした"
+				},
+				{
+					"version": "1.2.0",
+					"date": "2026-09-30",
+					"notes": "印刷のショートカット（スコアカード・リザルトリスト・ランキングラウンド・個人／団体決勝ラウンド組合せ）を追加"
+				},
+				{
+					"version": "1.1.1",
+					"date": "2026-09-30",
+					"notes": "参加者リストの基本情報で所属先2 を設定できるようにした"
+				},
+				{
+					"version": "1.1.0",
+					"date": "2026-09-30",
+					"notes": "IRMマネジメントを参加者リストの編集画面（IRM タブ）に統合。参加者リストに予選の得点・順位を表示し、得点順・順位順の並べ替えと部門クラス・IRM ありの絞り込みを追加"
+				},
+				{
+					"version": "1.0.0",
+					"date": "2026-09-26",
+					"notes": "パッケージ情報を追加"
+				}
+			],
+			"download": "SmartphoneMode-1.3.3.zip",
+			"sha256": "c0c48aa84e7a574c9afb0121e92c0d769c0478a88c6a681367facdc665bc2ea0",
+			"size": 51712,
+			"updated": "2026-10-01"
+		}
+	]
+}

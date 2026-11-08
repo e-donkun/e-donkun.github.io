@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<!--
+ianseo カスタムモジュールの配布ページ。
+配布サイトの、zip と catalog.json と同じフォルダに置く。catalog.json を読んで、パッケージを一覧にする。
+catalog.json と zip は、ianseo の「モジュール」→「カスタムモジュール」→「パッケージ作成」で作る。
+このページもそこからダウンロードできる（Modules/Custom/ModuleManager/site/index.html）。
+
+- 見出しは catalog.json の title（なければ「ianseo カスタムモジュール」）
+- 一覧は名前の順。ほかのモジュールを入れるのに必要な「カスタムモジュール管理」（ModuleManager）だけは先頭にする
+- 下の CATALOG_URL を変えると、ほかの場所の catalog.json を読む（そのときは、そのサーバーで CORS を許可する）
+- 外部のファイルは読まない（このファイルだけで動く）
+
+変更履歴:
+2026/09/26 初版
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ianseo カスタムモジュール</title>
+<style>
+	:root {
+		--bg: #f6f7f7;
+		--card: #ffffff;
+		--text: #1d2327;
+		--muted: #646970;
+		--line: #dcdcde;
+		--accent: #2271b1;
+		--accent-hover: #135e96;
+		--ok-bg: #edfaef;
+		--ok-text: #00751e;
+		--warn-bg: #fcf9e8;
+		--warn-line: #dba617;
+		--code-bg: #f0f0f1;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--bg: #1d2023;
+			--card: #26292d;
+			--text: #e6e7e8;
+			--muted: #a7aaad;
+			--line: #3c4043;
+			--accent: #72aee6;
+			--accent-hover: #9ec2e6;
+			--ok-bg: #1f3325;
+			--ok-text: #8fd19e;
+			--warn-bg: #3a3421;
+			--warn-line: #dba617;
+			--code-bg: #2f3337;
+		}
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+		line-height: 1.6;
+	}
+	a { color: var(--accent); }
+	a:hover { color: var(--accent-hover); }
+	.wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+	header { background: var(--card); border-bottom: 1px solid var(--line); padding: 24px 0 20px; }
+	header h1 { margin: 0; font-size: 1.6rem; }
+	header .sub { color: var(--muted); margin: 4px 0 0; font-size: 0.9rem; }
+	main.wrap { padding-top: 24px; padding-bottom: 48px; }
+
+	.howto { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px 20px; margin-bottom: 24px; }
+	.howto h2 { margin: 0 0 8px; font-size: 1.1rem; }
+	.howto ol { margin: 0; padding-left: 1.4em; }
+	.howto li { margin: 6px 0; }
+	.urlbox { display: flex; gap: 8px; margin: 6px 0 2px; max-width: 640px; }
+	.urlbox input { flex: 1; min-width: 0; font: inherit; font-size: 0.9rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--code-bg); color: var(--text); }
+	.note { color: var(--muted); font-size: 0.85rem; }
+
+	.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
+	.toolbar input[type=search] { font: inherit; padding: 8px 10px; width: 320px; max-width: 100%; border: 1px solid var(--line); border-radius: 4px; background: var(--card); color: var(--text); }
+	.count { color: var(--muted); font-size: 0.9rem; }
+
+	.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+	.card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; display: flex; flex-direction: column; scroll-margin-top: 16px; }
+	.card.is-target { outline: 3px solid var(--accent); }
+	.card .body { padding: 16px 16px 8px; flex: 1; }
+	.card h3 { margin: 0; font-size: 1.15rem; line-height: 1.4; }
+	.card h3 a { text-decoration: none; color: inherit; }
+	.card .by { color: var(--muted); font-size: 0.85rem; margin: 2px 0 8px; }
+	.card .desc { margin: 0 0 12px; white-space: pre-wrap; }
+	.meta { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 0.85rem; }
+	.meta dt { color: var(--muted); }
+	.meta dd { margin: 0; overflow-wrap: anywhere; }
+	.tested { display: inline-block; background: var(--ok-bg); color: var(--ok-text); border-radius: 10px; padding: 0 8px; }
+	details { margin-top: 10px; font-size: 0.9rem; }
+	summary { cursor: pointer; color: var(--accent); }
+	.log { margin: 6px 0 0; padding-left: 1.2em; }
+	.log li { margin-bottom: 6px; }
+	.log .notes { white-space: pre-wrap; }
+	.sha { font-family: ui-monospace, Consolas, monospace; font-size: 0.75rem; overflow-wrap: anywhere; background: var(--code-bg); padding: 4px 6px; border-radius: 4px; margin-top: 4px; }
+	.card .foot { border-top: 1px solid var(--line); padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+	.btn { display: inline-block; font: inherit; font-size: 0.95rem; padding: 6px 14px; border-radius: 4px; border: 1px solid var(--accent); background: var(--accent); color: #fff; text-decoration: none; cursor: pointer; }
+	.btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+	.btn.sub { background: transparent; color: var(--accent); }
+	.btn.sub:hover { background: var(--code-bg); color: var(--accent-hover); }
+	.foot .size { color: var(--muted); font-size: 0.85rem; }
+
+	.msg { background: var(--warn-bg); border-left: 4px solid var(--warn-line); padding: 12px 16px; border-radius: 0 4px 4px 0; }
+	.empty { color: var(--muted); padding: 24px 0; }
+	footer { color: var(--muted); font-size: 0.8rem; padding: 16px 0 32px; border-top: 1px solid var(--line); }
+	@media (max-width: 480px) {
+		.cards { grid-template-columns: 1fr; }
+		header h1 { font-size: 1.3rem; }
+		.urlbox { flex-direction: column; }
+	}
+</style>
+</head>
+<body>
+<header>
+	<div class="wrap">
+		<h1 id="title">ianseo カスタムモジュール</h1>
+		<p class="sub" id="sub">ianseo（アーチェリーの大会運営ソフト）に追加して使うモジュールです。</p>
+	</div>
+</header>
+<main class="wrap">
+	<section class="howto">
+		<h2>入れ方</h2>
+		<ol>
+			<li>
+				<b>インターネットにつながる ianseo</b>: メニューの「モジュール」→「カスタムモジュール」→「新規追加」で、次の URL を「カタログの URL」に入れて「保存して受信」を押します。一覧から選んでインストールでき、新しい版が出るとメニューに知らせが出ます。
+				<div class="urlbox"><input type="text" id="catalogUrl" readonly aria-label="カタログの URL"><button type="button" class="btn sub" id="copy">コピー</button></div>
+			</li>
+			<li><b>インターネットにつながらない会場</b>: このページで zip をダウンロードしておき、「新規追加」の「zip をアップロード」で入れます。</li>
+			<li>入れたモジュールは無効の状態で入ります。「インストール済み」で「有効にする」を押してください。</li>
+		</ol>
+		<p class="note">「カスタムモジュール」のメニューがない ianseo には、先に「カスタムモジュール管理」（ModuleManager）を入れてください（zip を展開して、ianseo の Modules/Custom フォルダに ModuleManager フォルダを置きます）。</p>
+	</section>
+
+	<div class="toolbar">
+		<input type="search" id="q" placeholder="モジュールを探す（名前・説明・作者）" aria-label="モジュールを探す">
+		<span class="count" id="count"></span>
+	</div>
+	<div id="list" class="cards" aria-live="polite"></div>
+	<noscript><p class="msg">このページを見るには JavaScript を有効にしてください。</p></noscript>
+</main>
+<footer>
+	<div class="wrap" id="foot"></div>
+</footer>
+
+<script>
+(function() {
+	'use strict';
+
+	// 読み込む catalog.json（このページと同じフォルダ）
+	var CATALOG_URL = 'catalog.json';
+
+	var $ = function(id) { return document.getElementById(id); };
+
+	// 要素を作る（文字は textContent で入れる）
+	function el(tag, attrs, children) {
+		var e = document.createElement(tag);
+		Object.keys(attrs || {}).forEach(function(k) {
+			if(k === 'text') {
+				e.textContent = attrs[k];
+			} else if(k === 'class') {
+				e.className = attrs[k];
+			} else {
+				e.setAttribute(k, attrs[k]);
+			}
+		});
+		(children || []).forEach(function(c) {
+			if(c) {
+				e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+			}
+		});
+		return e;
+	}
+
+	function str(v) {
+		return (typeof v === 'string' || typeof v === 'number') ? String(v).trim() : '';
+	}
+
+	// http(s) か、このサイトの中への相対 URL だけを使う
+	function safeUrl(u, base) {
+		u = str(u);
+		if(!u) {
+			return '';
+		}
+		try {
+			var a = new URL(u, base);
+			return (a.protocol === 'http:' || a.protocol === 'https:') ? a.href : '';
+		} catch(e) {
+			return '';
+		}
+	}
+
+	function size(n) {
+		n = Number(n) || 0;
+		if(!n) {
+			return '';
+		}
+		return n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.ceil(n / 1024) + ' KB';
+	}
+
+	var catalogAbs = new URL(CATALOG_URL, location.href).href;
+	$('catalogUrl').value = catalogAbs;
+	$('copy').addEventListener('click', function() {
+		var inp = $('catalogUrl');
+		inp.select();
+		var done = function() { $('copy').textContent = 'コピーしました'; setTimeout(function() { $('copy').textContent = 'コピー'; }, 2000); };
+		if(navigator.clipboard && window.isSecureContext) {
+			navigator.clipboard.writeText(inp.value).then(done, function() { document.execCommand('copy'); done(); });
+		} else {
+			document.execCommand('copy');
+			done();
+		}
+	});
+
+	function card(m) {
+		var id = str(m.id);
+		var name = str(m.name) || id;
+		var version = str(m.version);
+		var download = safeUrl(m.download, catalogAbs);
+		var homepage = safeUrl(m.homepage, catalogAbs);
+		var authorUrl = safeUrl(m.authorUrl, catalogAbs);
+
+		var by = [];
+		if(str(m.author)) {
+			by.push('作者: ');
+			by.push(authorUrl ? el('a', {href: authorUrl, target: '_blank', rel: 'noopener', text: str(m.author)}) : str(m.author));
+		}
+
+		var meta = el('dl', {class: 'meta'});
+		function row(label, value) {
+			if(value) {
+				meta.appendChild(el('dt', {text: label}));
+				meta.appendChild(el('dd', {}, [value]));
+			}
+		}
+		row('版', version);
+		row('動作確認', str(m.testedIanseo) ? el('span', {class: 'tested', text: 'ianseo ' + str(m.testedIanseo)}) : '記録なし');
+		row('必要な ianseo', str(m.requiresIanseo) ? str(m.requiresIanseo) + ' 以降' : '');
+		row('必要な PHP', str(m.requiresPhp) ? str(m.requiresPhp) + ' 以降' : '');
+		row('更新日', str(m.updated));
+		row('ライセンス', str(m.license));
+		row('フォルダ名', id);
+
+		var body = el('div', {class: 'body'}, [
+			el('h3', {}, [el('a', {href: '#' + id, text: name})]),
+			by.length ? el('div', {class: 'by'}, by) : null,
+			str(m.description) ? el('p', {class: 'desc', text: str(m.description)}) : null,
+			meta
+		]);
+
+		var log = Array.isArray(m.changelog) ? m.changelog.filter(function(c) { return c && str(c.version); }) : [];
+		if(log.length) {
+			var ul = el('ul', {class: 'log'});
+			log.forEach(function(c) {
+				ul.appendChild(el('li', {}, [
+					el('b', {text: str(c.version)}),
+					str(c.date) ? ' (' + str(c.date) + ')' : '',
+					str(c.notes) ? el('div', {class: 'notes', text: str(c.notes)}) : null
+				]));
+			});
+			body.appendChild(el('details', {}, [el('summary', {text: '変更履歴'}), ul]));
+		}
+		if(str(m.sha256)) {
+			body.appendChild(el('details', {}, [
+				el('summary', {text: 'ファイルの確認用（SHA-256）'}),
+				el('div', {class: 'sha', text: str(m.sha256)})
+			]));
+		}
+
+		var foot = el('div', {class: 'foot'}, [
+			download ? el('a', {class: 'btn', href: download, download: '', text: 'ダウンロード'}) : null,
+			homepage && homepage.split('#')[0] !== location.href.split('#')[0] ? el('a', {class: 'btn sub', href: homepage, target: '_blank', rel: 'noopener', text: '詳しい説明'}) : null,
+			size(m.size) ? el('span', {class: 'size', text: 'zip ' + size(m.size)}) : null
+		]);
+
+		var c = el('article', {class: 'card', id: id}, [body, foot]);
+		c.dataset.search = [id, name, str(m.description), str(m.author)].join(' ').toLowerCase();
+		return c;
+	}
+
+	function filter() {
+		var q = $('q').value.trim().toLowerCase();
+		var cards = document.querySelectorAll('.card');
+		var shown = 0;
+		cards.forEach(function(c) {
+			var ok = !q || c.dataset.search.indexOf(q) >= 0;
+			c.hidden = !ok;
+			if(ok) {
+				shown++;
+			}
+		});
+		$('count').textContent = cards.length ? (q ? shown + ' / ' + cards.length + ' 件' : cards.length + ' 件') : '';
+	}
+	$('q').addEventListener('input', filter);
+
+	function show(catalog) {
+		var title = str(catalog.title);
+		if(title) {
+			$('title').textContent = title;
+			document.title = title;
+		}
+		if(str(catalog.generated)) {
+			$('foot').textContent = '一覧の更新: ' + str(catalog.generated);
+		}
+		var mods = (Array.isArray(catalog.modules) ? catalog.modules : []).filter(function(m) {
+			return m && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(str(m.id)) && str(m.download);
+		});
+		mods.sort(function(a, b) {
+			var sa = str(a.id) === 'ModuleManager', sb = str(b.id) === 'ModuleManager';
+			if(sa !== sb) {
+				return sa ? -1 : 1;
+			}
+			return (str(a.name) || str(a.id)).localeCompare(str(b.name) || str(b.id), 'ja');
+		});
+		var list = $('list');
+		list.textContent = '';
+		if(!mods.length) {
+			list.appendChild(el('p', {class: 'empty', text: '配布中のモジュールはありません。'}));
+		}
+		mods.forEach(function(m) { list.appendChild(card(m)); });
+		filter();
+		focusHash();
+	}
+
+	// #モジュール名 で開いたときは、そのモジュールへ移って枠で囲む（カードは後から作るので、:target は使えない）
+	function focusHash() {
+		document.querySelectorAll('.card.is-target').forEach(function(c) { c.classList.remove('is-target'); });
+		var id = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : '';
+		var t = id ? document.getElementById(id) : null;
+		if(t && t.classList.contains('card')) {
+			t.hidden = false;
+			t.classList.add('is-target');
+			t.scrollIntoView();
+		}
+	}
+	window.addEventListener('hashchange', focusHash);
+
+	fetch(CATALOG_URL, {cache: 'no-cache'}).then(function(r) {
+		if(!r.ok) {
+			throw new Error(r.status === 404 ? 'ファイルがありません' : 'HTTP ' + r.status);
+		}
+		return r.text();
+	}).then(function(t) {
+		var catalog;
+		try {
+			catalog = JSON.parse(t.replace(/^\uFEFF/, ''));
+		} catch(e) {
+			throw new Error('catalog.json の形が正しくありません');
+		}
+		if(!catalog || !Array.isArray(catalog.modules)) {
+			throw new Error('catalog.json に modules がありません');
+		}
+		show(catalog);
+	}).catch(function(e) {
+		var list = $('list');
+		list.textContent = '';
+		list.appendChild(el('div', {class: 'msg'}, [
+			el('b', {text: 'モジュールの一覧を読み込めませんでした。'}),
+			el('div', {text: location.protocol === 'file:'
+				? 'このページは、パソコンで直接開くと一覧を読めません。配布サイトにアップロードしてから開いてください。'
+				: 'このページと同じフォルダに catalog.json があるか確認してください。'}),
+			el('div', {class: 'note', text: '（' + CATALOG_URL + ': ' + (e && e.message ? e.message : e) + '）'})
+		]));
+	});
+})();
+</script>
+</body>
+</html>
