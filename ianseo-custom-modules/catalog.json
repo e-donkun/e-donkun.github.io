@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-10 05:58:24",
+	"generated": "2026-11-10 06:09:29",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -335,11 +335,16 @@
 			"id": "ModuleManager",
 			"name": "カスタムモジュール管理",
 			"description": "カスタムモジュールの有効・無効の切り替え、配布サイトのカタログから選んでインストール・更新・更新の確認、zip からのインストール、削除をする（WordPress のプラグイン管理のような画面）。",
-			"version": "1.4.5",
+			"version": "1.4.6",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#ModuleManager",
 			"testedIanseo": "2026-10-26 rev 16",
 			"requiresPhp": "8.0",
 			"changelog": [
+				{
+					"version": "1.4.6",
+					"date": "2026-11-10",
+					"notes": "インストール済みの画面で、更新が 2 件以上あれば「すべて更新」のボタンを出すようにした"
+				},
 				{
 					"version": "1.4.5",
 					"date": "2026-11-10",
@@ -396,9 +401,9 @@
 					"notes": "初版"
 				}
 			],
-			"download": "ModuleManager-1.4.5.zip",
-			"sha256": "74c8a4fafca586022a4fdcadf88a3c3726fd65aea77e97635ae87faaea534052",
-			"size": 35719,
+			"download": "ModuleManager-1.4.6.zip",
+			"sha256": "b622f7118d5247fbd079e237d37def5accd0e80f40072186cd9bc5891875a46e",
+			"size": 36053,
 			"updated": "2026-11-10"
 		},
 		{
