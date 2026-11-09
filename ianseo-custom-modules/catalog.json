@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-10-18 12:01:34",
+	"generated": "2026-11-09 20:21:49",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -36,11 +36,16 @@
 		{
 			"id": "BackgroundColor",
 			"name": "背景色",
-			"description": "ianseo の画面の背景色を、設定の画面で選んだ色にする。ianseo の更新で元に戻らない。",
-			"version": "1.1.0",
+			"description": "ianseo の画面の背景色・文字色を、設定の画面で選んだ色にする。試合ごとに設定できる。ianseo の更新で元に戻らない。",
+			"version": "1.2.0",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#BackgroundColor",
 			"testedIanseo": "2026-03-01",
 			"changelog": [
+				{
+					"version": "1.2.0",
+					"date": "2026-10-22",
+					"notes": "文字色（--header-dark）を選べるようにし、背景色・文字色を試合ごとに設定できるようにした"
+				},
 				{
 					"version": "1.1.0",
 					"date": "2026-09-30",
@@ -52,10 +57,10 @@
 					"notes": "初版"
 				}
 			],
-			"download": "BackgroundColor-1.1.0.zip",
-			"sha256": "5e265f657c347723367fa1a0158bc4876c2cbb2a47c6b0c47251458288d86c72",
-			"size": 6579,
-			"updated": "2026-09-30"
+			"download": "BackgroundColor-1.2.0.zip",
+			"sha256": "51f26c870fb0597e4c82c0ff4480a737b667242de8e3b2b2c0bcfe67a8b208d3",
+			"size": 8325,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "CardManual",
@@ -289,12 +294,17 @@
 		{
 			"id": "ModuleManager",
 			"name": "カスタムモジュール管理",
-			"description": "カスタムモジュールの有効・無効の切り替え、配布サイトのカタログから選んでインストール・更新・更新の確認、zip からのインストール、削除、配布用パッケージの作成をする（WordPress のプラグイン管理のような画面）。",
-			"version": "1.3.1",
+			"description": "カスタムモジュールの有効・無効の切り替え、配布サイトのカタログから選んでインストール・更新・更新の確認、zip からのインストール、削除をする（WordPress のプラグイン管理のような画面）。",
+			"version": "1.4.0",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#ModuleManager",
 			"testedIanseo": "2026-03-01 rev 255",
 			"requiresPhp": "8.0",
 			"changelog": [
+				{
+					"version": "1.4.0",
+					"date": "2026-11-09",
+					"notes": "画面の表記を整理（動作確認のバッジは「未確認（ianseo 〇〇 まで確認）」）\n新規追加: インストール済みは「インストール済み(版)」、新しい版があれば「更新(旧→新)」のボタン。「入れ直す」はやめた\nパッケージ作成は配布用の zip から外した"
+				},
 				{
 					"version": "1.3.1",
 					"date": "2026-09-30",
@@ -321,10 +331,10 @@
 					"notes": "初版"
 				}
 			],
-			"download": "ModuleManager-1.3.1.zip",
-			"sha256": "3bab55822e42ab53176dbc18962415299e839766b6a657152cd2b5a07c6f5abc",
-			"size": 45133,
-			"updated": "2026-09-30"
+			"download": "ModuleManager-1.4.0.zip",
+			"sha256": "9930c70ad84b6d877ee7bc81dc8a8a88ebb6273afe0b45e99fefc72f98373d28",
+			"size": 35711,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "SmartphoneMode",
