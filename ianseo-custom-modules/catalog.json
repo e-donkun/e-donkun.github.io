@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-09 20:34:18",
+	"generated": "2026-11-10 05:53:41",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -335,11 +335,16 @@
 			"id": "ModuleManager",
 			"name": "カスタムモジュール管理",
 			"description": "カスタムモジュールの有効・無効の切り替え、配布サイトのカタログから選んでインストール・更新・更新の確認、zip からのインストール、削除をする（WordPress のプラグイン管理のような画面）。",
-			"version": "1.4.3",
+			"version": "1.4.4",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#ModuleManager",
 			"testedIanseo": "2026-10-26 rev 16",
 			"requiresPhp": "8.0",
 			"changelog": [
+				{
+					"version": "1.4.4",
+					"date": "2026-11-09",
+					"notes": "パッケージ作成（Package.php・site/）を keep に入れ、管理画面から更新しても消えないようにした"
+				},
 				{
 					"version": "1.4.3",
 					"date": "2026-11-09",
@@ -386,10 +391,10 @@
 					"notes": "初版"
 				}
 			],
-			"download": "ModuleManager-1.4.3.zip",
-			"sha256": "1083d86531f15377bdba01c80fa1d6f9f9cd9c97af0382cd56622c855fe6b9a9",
-			"size": 35830,
-			"updated": "2026-11-09"
+			"download": "ModuleManager-1.4.4.zip",
+			"sha256": "e2ce3402caf7856cc9198cb005b30c94ed3477aff9fed5559c69e1c51c232bb1",
+			"size": 35903,
+			"updated": "2026-11-10"
 		},
 		{
 			"id": "SmartphoneMode",
