@@ -11,6 +11,7 @@ catalog.json と zip は、ianseo の「モジュール」→「カスタムモ�
 - 外部のファイルは読まない（このファイルだけで動く）
 
 変更履歴:
+2026/11/09 動作確認の版に「ianseo」を付けない
 2026/09/26 初版
 -->
 <html lang="ja">
@@ -235,7 +236,7 @@ catalog.json と zip は、ianseo の「モジュール」→「カスタムモ�
 			}
 		}
 		row('版', version);
-		row('動作確認', str(m.testedIanseo) ? el('span', {class: 'tested', text: 'ianseo ' + str(m.testedIanseo)}) : '記録なし');
+		row('動作確認', str(m.testedIanseo) ? el('span', {class: 'tested', text: str(m.testedIanseo)}) : '記録なし');
 		row('必要な ianseo', str(m.requiresIanseo) ? str(m.requiresIanseo) + ' 以降' : '');
 		row('必要な PHP', str(m.requiresPhp) ? str(m.requiresPhp) + ' 以降' : '');
 		row('更新日', str(m.updated));

@@ -1,17 +1,22 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-09 20:26:26",
+	"generated": "2026-11-09 20:34:18",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
 			"id": "Award",
 			"name": "賞状PDF出力",
 			"description": "賞状の用紙・縦書き/横書き・文字の配置・公印をテンプレートとして保存し、予選の順位（部門・クラスごと）や手入力から賞状の PDF を出力する。発行履歴を残し、あとから再印刷できる。",
-			"version": "2.0.1",
+			"version": "2.0.2",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Award",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"requiresPhp": "7.4",
 			"changelog": [
+				{
+					"version": "2.0.2",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "2.0.1",
 					"date": "2026-09-26",
@@ -28,19 +33,24 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "Award-2.0.1.zip",
-			"sha256": "e6592a737984596fcf8d3b4cc128c088451903ace76a8f97d227d22ac593391c",
-			"size": 5478071,
-			"updated": "2026-09-30"
+			"download": "Award-2.0.2.zip",
+			"sha256": "c7f7fcd43e6255f4614ca6a8210513f9f0bd34014ca65e149a7049317c3c2bc8",
+			"size": 5478107,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "BackgroundColor",
 			"name": "背景色",
 			"description": "ianseo の画面の背景色・文字色を、設定の画面で選んだ色にする。試合ごとに設定できる。ianseo の更新で元に戻らない。",
-			"version": "1.2.0",
+			"version": "1.2.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#BackgroundColor",
-			"testedIanseo": "2026-03-01",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.2.1",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.2.0",
 					"date": "2026-10-22",
@@ -57,38 +67,48 @@
 					"notes": "初版"
 				}
 			],
-			"download": "BackgroundColor-1.2.0.zip",
-			"sha256": "51f26c870fb0597e4c82c0ff4480a737b667242de8e3b2b2c0bcfe67a8b208d3",
-			"size": 8325,
+			"download": "BackgroundColor-1.2.1.zip",
+			"sha256": "91abe12fe400f86562852b749bda6d5bf4b3de0e5cfce8c4077cdf16bdf22a29",
+			"size": 8369,
 			"updated": "2026-11-09"
 		},
 		{
 			"id": "CardManual",
 			"name": "バッジ手入力出力",
 			"description": "ゼッケン・名前などを手で入力して、バッジ（ID カード）の PDF を出力する。",
-			"version": "1.0.0",
+			"version": "1.0.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#CardManual",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.0.1",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.0.0",
 					"date": "2026-09-26",
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "CardManual-1.0.0.zip",
-			"sha256": "885ec274987d25e145573006d6c06bcfbcd71756139f45157c2d34963273c684",
-			"size": 14055,
-			"updated": "2026-09-26"
+			"download": "CardManual-1.0.1.zip",
+			"sha256": "e4c5454f317d7714183d604f0ebd4ff83257837c9106d19737295a3e7916fc6c",
+			"size": 14103,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "CustomPrintScore",
 			"name": "スコアカード印刷（カスタム）",
 			"description": "予選のスコアカード印刷のカスタム版（標準のスコアカードの書式を調整し、予備のブランクスコアカードも印刷できる）。個人・団体決勝の予備のブランクスコアカードも印刷できる。",
-			"version": "1.1.0",
+			"version": "1.1.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#CustomPrintScore",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.1.1",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.1.0",
 					"date": "2026-10-13",
@@ -100,38 +120,48 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "CustomPrintScore-1.1.0.zip",
-			"sha256": "412967807ceae8191ee70210862552ee2d307e673112e96e05cf1e9cb4653dc9",
-			"size": 20359,
-			"updated": "2026-10-13"
+			"download": "CustomPrintScore-1.1.1.zip",
+			"sha256": "29365e5eb0d9664a19dec9743830da37787a38b4ed5bbab443db8246976883e5",
+			"size": 20400,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "Duplicate",
 			"name": "既存の試合から新規作成",
 			"description": "選んだ試合の設定（部門・クラス・種目・セッション・スケジュールなど）をコピーして、新しい試合を作る。",
-			"version": "1.0.0",
+			"version": "1.0.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Duplicate",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.0.1",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.0.0",
 					"date": "2026-09-26",
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "Duplicate-1.0.0.zip",
-			"sha256": "4886635ed78b8a80154a3069b8942531a5f5b34802621cf3a79fa0bec4b96e55",
-			"size": 9323,
-			"updated": "2026-09-26"
+			"download": "Duplicate-1.0.1.zip",
+			"sha256": "62fd9cd1b06db859f647932ded56d48552cecf2e862e75bf30a15cf5907990f6",
+			"size": 9367,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "IskConnDiag",
 			"name": "ISK接続診断",
 			"description": "Scorekeeper NG がサーバーにつながらないときの切り分け用。設定の確認、サーバーからの到達テスト、アプリの通信の記録（検証用 QR コード）、スマホのブラウザからの到達テストができる。",
-			"version": "1.1.0",
+			"version": "1.1.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#IskConnDiag",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.1.1",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.1.0",
 					"date": "2026-10-12",
@@ -143,38 +173,48 @@
 					"notes": "初版"
 				}
 			],
-			"download": "IskConnDiag-1.1.0.zip",
-			"sha256": "039e0ff4003b432f4294c632600b59733ee7c4e448c378c48b12300e15876c41",
-			"size": 45421,
-			"updated": "2026-10-12"
+			"download": "IskConnDiag-1.1.1.zip",
+			"sha256": "1057ba7af1e518f4426662c618bee6fe1724aee9289fdc57535c7d0b42889606",
+			"size": 45458,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "IskLiteDevices",
 			"name": "ISK端末一覧（Lite）",
 			"description": "ISK-NG Lite の大会で、つながっている端末の一覧を表示する。",
-			"version": "1.0.0",
+			"version": "1.0.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#IskLiteDevices",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.0.1",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.0.0",
 					"date": "2026-09-26",
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "IskLiteDevices-1.0.0.zip",
-			"sha256": "b6bedcada9f7b65d223a5a29824925bce49d43bc7664054b23f10ea6bde504a5",
-			"size": 13980,
-			"updated": "2026-09-26"
+			"download": "IskLiteDevices-1.0.1.zip",
+			"sha256": "7d17e35b86977c9c722b2e34235d9431d8d5a73537b7d3ce4b86637361a6f180",
+			"size": 14030,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "LiveScoreboard",
 			"name": "ライブ得点集計",
 			"description": "セッションごとの得点をライブで集計して表示する。",
-			"version": "1.11.2",
+			"version": "1.11.3",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#LiveScoreboard",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.11.3",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.11.2",
 					"date": "2026-10-18",
@@ -286,20 +326,25 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "LiveScoreboard-1.11.2.zip",
-			"sha256": "df1329dcc84700f3d2de21e4239c7d2a548599809ef2112af6e71be7b364b6ea",
-			"size": 516708,
-			"updated": "2026-10-18"
+			"download": "LiveScoreboard-1.11.3.zip",
+			"sha256": "c84324f5bac9ca3b2ae960d006066e9bdaf19aa774528e3438644c65f5401e80",
+			"size": 516745,
+			"updated": "2026-11-09"
 		},
 		{
 			"id": "ModuleManager",
 			"name": "カスタムモジュール管理",
 			"description": "カスタムモジュールの有効・無効の切り替え、配布サイトのカタログから選んでインストール・更新・更新の確認、zip からのインストール、削除をする（WordPress のプラグイン管理のような画面）。",
-			"version": "1.4.2",
+			"version": "1.4.3",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#ModuleManager",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"requiresPhp": "8.0",
 			"changelog": [
+				{
+					"version": "1.4.3",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした\n配布ページ（site/index.html）の動作確認の版に「ianseo」を付けないようにした"
+				},
 				{
 					"version": "1.4.2",
 					"date": "2026-11-09",
@@ -341,19 +386,24 @@
 					"notes": "初版"
 				}
 			],
-			"download": "ModuleManager-1.4.2.zip",
-			"sha256": "4140714e244ec01af453b661e11b3a3291920362f2ec61ccc84cfd5ce9c53a92",
-			"size": 35781,
+			"download": "ModuleManager-1.4.3.zip",
+			"sha256": "1083d86531f15377bdba01c80fa1d6f9f9cd9c97af0382cd56622c855fe6b9a9",
+			"size": 35830,
 			"updated": "2026-11-09"
 		},
 		{
 			"id": "SmartphoneMode",
 			"name": "スマホモード",
 			"description": "参加者リスト（IRM を含む）・的番号設定・スコアカード修正・ライブ得点集計・印刷を、スマホで使いやすい画面にしたもの。",
-			"version": "1.3.3",
+			"version": "1.3.4",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#SmartphoneMode",
-			"testedIanseo": "2026-03-01 rev 255",
+			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.3.4",
+					"date": "2026-11-09",
+					"notes": "動作確認した ianseo の版を 2026-10-26 rev 16 にした"
+				},
 				{
 					"version": "1.3.3",
 					"date": "2026-10-01",
@@ -395,10 +445,10 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "SmartphoneMode-1.3.3.zip",
-			"sha256": "c0c48aa84e7a574c9afb0121e92c0d769c0478a88c6a681367facdc665bc2ea0",
-			"size": 51712,
-			"updated": "2026-10-01"
+			"download": "SmartphoneMode-1.3.4.zip",
+			"sha256": "276ee77cc8382d680ebd0d339060e41db4f3b06336f5b87c919d20e9db338a67",
+			"size": 51753,
+			"updated": "2026-11-09"
 		}
 	]
 }
