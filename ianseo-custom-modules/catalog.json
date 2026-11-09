@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-10 06:32:10",
+	"generated": "2026-11-10 07:05:10",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -211,10 +211,15 @@
 			"id": "IskLiteDevices",
 			"name": "ISK端末一覧（Lite）",
 			"description": "ISK-NG Lite の大会で、つながっている端末の一覧を表示する。",
-			"version": "1.1.0",
+			"version": "1.1.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#IskLiteDevices",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.1.1",
+					"date": "2026-11-10",
+					"notes": "大会ごとの一覧とサーバー全体の一覧を、表の行の右端の「大会に接続」「サーバー全体」のタブで切り替えるようにした"
+				},
 				{
 					"version": "1.1.0",
 					"date": "2026-11-10",
@@ -231,9 +236,9 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "IskLiteDevices-1.1.0.zip",
-			"sha256": "3dc31b8ec89d74ae11d9eebcf34d47543342d050454cc1d3a6a1aef830c5b639",
-			"size": 14393,
+			"download": "IskLiteDevices-1.1.1.zip",
+			"sha256": "5ba722fb4eee38c168fbff9744151b36894205a3ad68715d39a74d4347cefb2f",
+			"size": 14724,
 			"updated": "2026-11-10"
 		},
 		{
