@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-10 06:23:20",
+	"generated": "2026-11-10 06:27:56",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -129,10 +129,15 @@
 			"id": "Duplicate",
 			"name": "既存の試合から新規作成",
 			"description": "選んだ試合の設定（部門・クラス・種目・セッション・スケジュールなど）をコピーして、新しい試合を作る。",
-			"version": "1.0.1",
+			"version": "1.0.2",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Duplicate",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.0.2",
+					"date": "2026-11-10",
+					"notes": "メニューは試合を開いていないときだけ、「大会情報をインポート」のすぐ下に出すようにした"
+				},
 				{
 					"version": "1.0.1",
 					"date": "2026-11-09",
@@ -144,10 +149,10 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "Duplicate-1.0.1.zip",
-			"sha256": "62fd9cd1b06db859f647932ded56d48552cecf2e862e75bf30a15cf5907990f6",
-			"size": 9367,
-			"updated": "2026-11-09"
+			"download": "Duplicate-1.0.2.zip",
+			"sha256": "51aa1124347dd19d4645b244d5c9149c6f1d03328939d3fe317a6320a6fce0dc",
+			"size": 9693,
+			"updated": "2026-11-10"
 		},
 		{
 			"id": "IanseoNetLink",
