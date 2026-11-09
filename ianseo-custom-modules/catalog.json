@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-10 06:16:20",
+	"generated": "2026-11-10 06:23:20",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -148,6 +148,25 @@
 			"sha256": "62fd9cd1b06db859f647932ded56d48552cecf2e862e75bf30a15cf5907990f6",
 			"size": 9367,
 			"updated": "2026-11-09"
+		},
+		{
+			"id": "IanseoNetLink",
+			"name": "ianseo.netを表示",
+			"description": "大会情報メニューに「ianseo.netを表示」を追加し、ianseo.net のこの大会のページを別ウィンドウで開く。ianseo.net の大会コードが設定されている大会でだけ表示する。",
+			"version": "1.0.0",
+			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#IanseoNetLink",
+			"testedIanseo": "2026-10-26 rev 16",
+			"changelog": [
+				{
+					"version": "1.0.0",
+					"date": "2026-11-10",
+					"notes": "初版"
+				}
+			],
+			"download": "IanseoNetLink-1.0.0.zip",
+			"sha256": "84f62fbc981fb615b3a096e2451806405345b5cc14d6240854a95cf79778ea14",
+			"size": 1576,
+			"updated": "2026-11-10"
 		},
 		{
 			"id": "IskConnDiag",
