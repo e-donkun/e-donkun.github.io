@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-10 13:45:40",
+	"generated": "2026-11-10 14:00:29",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -459,10 +459,20 @@
 			"id": "SmartphoneMode",
 			"name": "スマホモード",
 			"description": "参加者リスト（IRM を含む）・的番号設定・スコアカード修正・端末のロック・ライブ得点集計・印刷を、スマホで使いやすい画面にしたもの。",
-			"version": "1.4.0",
+			"version": "1.4.2",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#SmartphoneMode",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.4.2",
+					"date": "2026-11-11",
+					"notes": "スコアカード修正: 人数を部門クラスの絞り込みのメニュー（すべての部門クラス(30人) など）に出し、「N 人」の表示をなくした"
+				},
+				{
+					"version": "1.4.1",
+					"date": "2026-11-11",
+					"notes": "スコアカード修正: セッション名・距離名（70m-前半など）で表示し、セッションが1つなら絞り込みを出さない。一覧に部門クラスの絞り込みと並べ替え（的番号順・ランキング順・矢数順）を追加。点数のボタンを的の色にし、「素点削除」と「エンド削除」（確認あり）を置いた"
+				},
 				{
 					"version": "1.4.0",
 					"date": "2026-11-10",
@@ -514,9 +524,9 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "SmartphoneMode-1.4.0.zip",
-			"sha256": "fdf7c9f339fc46330f3a3a7a32e0cb6c08a470da0ca6b5c9d41c9e21a4d40e05",
-			"size": 56912,
+			"download": "SmartphoneMode-1.4.2.zip",
+			"sha256": "8d5219d4e241b2e56d55c3ad08f021dd1484ad3b300479caa3674ec05e77a7c3",
+			"size": 59831,
 			"updated": "2026-11-10"
 		}
 	]
