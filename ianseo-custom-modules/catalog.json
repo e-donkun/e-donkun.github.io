@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-10 14:14:21",
+	"generated": "2026-11-11 21:02:42",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -459,10 +459,15 @@
 			"id": "SmartphoneMode",
 			"name": "スマホモード",
 			"description": "参加者リスト（IRM を含む）・的番号設定・スコアカード修正・端末のロック・ライブ得点集計・印刷を、スマホで使いやすい画面にしたもの。",
-			"version": "1.4.3",
+			"version": "1.5.0",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#SmartphoneMode",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.5.0",
+					"date": "2026-11-11",
+					"notes": "ライブ得点集計を順位表の形（1 人 1 行。順位・選手名を固定し、合計・距離ごとの点数・10・X・射数は横にスクロール）にし、行をタップするとスコアカードを下から表示するようにした"
+				},
 				{
 					"version": "1.4.3",
 					"date": "2026-11-11",
@@ -529,10 +534,10 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "SmartphoneMode-1.4.3.zip",
-			"sha256": "ce64e817bb23099a27a367a90fb0801086940c8cd5437208accefeb0dc355ee7",
-			"size": 60036,
-			"updated": "2026-11-10"
+			"download": "SmartphoneMode-1.5.0.zip",
+			"sha256": "5455ac49116f3812015964306cf6416c9895a14798747861700493c684309d11",
+			"size": 61116,
+			"updated": "2026-11-11"
 		}
 	]
 }
