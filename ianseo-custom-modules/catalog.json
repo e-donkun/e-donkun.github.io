@@ -1,17 +1,22 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-14 00:02:58",
+	"generated": "2026-11-14 07:52:36",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
 			"id": "Award",
 			"name": "賞状PDF出力",
 			"description": "賞状の用紙・縦書き/横書き・文字の配置・公印をテンプレートとして保存し、予選の順位（部門・クラスごと）や手入力から賞状の PDF を出力する。発行履歴を残し、あとから再印刷できる。",
-			"version": "2.0.2",
+			"version": "2.0.3",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Award",
 			"testedIanseo": "2026-10-26 rev 16",
 			"requiresPhp": "7.4",
 			"changelog": [
+				{
+					"version": "2.0.3",
+					"date": "2026-11-13",
+					"notes": "旧賞状ページ（つつじ賞・市ア協・近畿大会）と、その公印の画像・PDF を、モジュールではない Modules/Custom/Local に移した。サーバーで残ったマージの印（index.php・menu.php）を取り除いた。Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "2.0.2",
 					"date": "2026-11-09",
@@ -33,19 +38,24 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "Award-2.0.2.zip",
-			"sha256": "40e1b8f2b664aa57b9990408fd1eb2af6498913f3e5f4b4c7a70ca03f36ba30e",
-			"size": 5482682,
+			"download": "Award-2.0.3.zip",
+			"sha256": "88ec21b8be770529f932c39cef76d8e50abdc0a70426a1f317c54c75015e7591",
+			"size": 5119444,
 			"updated": "2026-11-14"
 		},
 		{
 			"id": "BackgroundColor",
 			"name": "背景色",
 			"description": "ianseo の画面の背景色・文字色を、設定の画面で選んだ色にする。試合ごとに設定できる。ianseo の更新で元に戻らない。",
-			"version": "1.2.1",
+			"version": "1.2.2",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#BackgroundColor",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.2.2",
+					"date": "2026-11-13",
+					"notes": "Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "1.2.1",
 					"date": "2026-11-09",
@@ -67,19 +77,24 @@
 					"notes": "初版"
 				}
 			],
-			"download": "BackgroundColor-1.2.1.zip",
-			"sha256": "91abe12fe400f86562852b749bda6d5bf4b3de0e5cfce8c4077cdf16bdf22a29",
-			"size": 8369,
-			"updated": "2026-11-09"
+			"download": "BackgroundColor-1.2.2.zip",
+			"sha256": "96162dd6fe090e6ad6c90f21d7d99a77536c6ea78638990c276ec7f90445e16b",
+			"size": 8459,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "CardManual",
 			"name": "バッジ手入力出力",
 			"description": "ゼッケン・名前などを手で入力して、バッジ（ID カード）の PDF を出力する。",
-			"version": "1.0.1",
+			"version": "1.0.2",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#CardManual",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.0.2",
+					"date": "2026-11-13",
+					"notes": "Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "1.0.1",
 					"date": "2026-11-09",
@@ -91,19 +106,24 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "CardManual-1.0.1.zip",
-			"sha256": "e4c5454f317d7714183d604f0ebd4ff83257837c9106d19737295a3e7916fc6c",
-			"size": 14103,
-			"updated": "2026-11-09"
+			"download": "CardManual-1.0.2.zip",
+			"sha256": "4cdeee097e6b26af1705985f5896f923335cc7a085baeea9e7a33bc8fae24a4c",
+			"size": 14198,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "CustomPrintScore",
 			"name": "スコアカード印刷（カスタム）",
 			"description": "予選のスコアカード印刷のカスタム版（標準のスコアカードの書式を調整し、予備のブランクスコアカードも印刷できる）。個人・団体決勝の予備のブランクスコアカードも印刷できる。",
-			"version": "1.1.1",
+			"version": "1.1.2",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#CustomPrintScore",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.1.2",
+					"date": "2026-11-13",
+					"notes": "Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "1.1.1",
 					"date": "2026-11-09",
@@ -120,19 +140,24 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "CustomPrintScore-1.1.1.zip",
-			"sha256": "29365e5eb0d9664a19dec9743830da37787a38b4ed5bbab443db8246976883e5",
-			"size": 20400,
-			"updated": "2026-11-09"
+			"download": "CustomPrintScore-1.1.2.zip",
+			"sha256": "7e74c734757dbc67ef2b9476e118928133e9fdacba58f515167eb837fa847093",
+			"size": 20651,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "Duplicate",
 			"name": "既存の大会から複製",
 			"description": "選んだ大会の設定（部門・クラス・種目・セッション・スケジュールなど）をコピーして、新しい大会を作る。",
-			"version": "1.0.3",
+			"version": "1.0.4",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Duplicate",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.0.4",
+					"date": "2026-11-13",
+					"notes": "Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "1.0.3",
 					"date": "2026-11-10",
@@ -154,10 +179,10 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "Duplicate-1.0.3.zip",
-			"sha256": "2059743ec454d699b1562c8a11ed990caaece5b53acfde88930c7a125eb8c8e0",
-			"size": 9788,
-			"updated": "2026-11-10"
+			"download": "Duplicate-1.0.4.zip",
+			"sha256": "d2c27f29861dcc7e9dff6f4dd54167a16c11432b08e9e50c12c883ca76789390",
+			"size": 9888,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "IanseoNetLink",
@@ -211,10 +236,15 @@
 			"id": "IskLiteDevices",
 			"name": "ISK端末一覧（Lite）",
 			"description": "ISK-NG Lite の大会で、つながっている端末の一覧を表示する。",
-			"version": "1.1.1",
+			"version": "1.1.2",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#IskLiteDevices",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.1.2",
+					"date": "2026-11-13",
+					"notes": "Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "1.1.1",
 					"date": "2026-11-10",
@@ -236,19 +266,24 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "IskLiteDevices-1.1.1.zip",
-			"sha256": "5ba722fb4eee38c168fbff9744151b36894205a3ad68715d39a74d4347cefb2f",
-			"size": 14724,
-			"updated": "2026-11-10"
+			"download": "IskLiteDevices-1.1.2.zip",
+			"sha256": "c554ab9779b657f183c86cf190a19fa27e3a797e036a12d21e8113c248e27e7c",
+			"size": 14869,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "LiveScoreboard",
 			"name": "ライブ得点集計",
 			"description": "セッションごとの得点をライブで集計して表示する。",
-			"version": "1.11.3",
+			"version": "1.11.4",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#LiveScoreboard",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.11.4",
+					"date": "2026-11-13",
+					"notes": "Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "1.11.3",
 					"date": "2026-11-09",
@@ -365,20 +400,25 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "LiveScoreboard-1.11.3.zip",
-			"sha256": "c84324f5bac9ca3b2ae960d006066e9bdaf19aa774528e3438644c65f5401e80",
-			"size": 516745,
-			"updated": "2026-11-09"
+			"download": "LiveScoreboard-1.11.4.zip",
+			"sha256": "a6fefe25a86c6706e2bae6a173b455fb65bc0c7913ae02809329975d47c88c49",
+			"size": 517616,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "ModuleManager",
 			"name": "カスタムモジュール管理",
 			"description": "カスタムモジュールの有効・無効の切り替え、配布サイトのカタログから選んでインストール・更新・更新の確認、zip からのインストール、削除をする（WordPress のプラグイン管理のような画面）。",
-			"version": "1.4.8",
+			"version": "1.4.9",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#ModuleManager",
 			"testedIanseo": "2026-10-26 rev 16",
 			"requiresPhp": "8.0",
 			"changelog": [
+				{
+					"version": "1.4.9",
+					"date": "2026-11-13",
+					"notes": "Modules/Custom/config.php がなければ作るようにした（どのモジュールの zip にも入っていないため）"
+				},
 				{
 					"version": "1.4.8",
 					"date": "2026-11-10",
@@ -450,19 +490,24 @@
 					"notes": "初版"
 				}
 			],
-			"download": "ModuleManager-1.4.8.zip",
-			"sha256": "9f9018514787f5f2cc74327cc7fa2109fe7affa20a63ce0d34bec17378e10159",
-			"size": 35450,
-			"updated": "2026-11-10"
+			"download": "ModuleManager-1.4.9.zip",
+			"sha256": "6906fb36bc622d8dd78c46f6a9476cc8d1e4e000891617ae480b4fae8111a8ba",
+			"size": 35885,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "SmartphoneMode",
 			"name": "スマホモード",
 			"description": "参加者リスト（IRM を含む）・的番号設定・スコアカード修正・端末のロック・ライブ得点集計・印刷を、スマホで使いやすい画面にしたもの。",
-			"version": "1.5.0",
+			"version": "1.5.1",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#SmartphoneMode",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.5.1",
+					"date": "2026-11-13",
+					"notes": "背景色のモジュールが無効のときは、その色を使わないようにした。Modules/Custom/config.php がなくても動くようにした"
+				},
 				{
 					"version": "1.5.0",
 					"date": "2026-11-11",
@@ -534,10 +579,10 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "SmartphoneMode-1.5.0.zip",
-			"sha256": "5455ac49116f3812015964306cf6416c9895a14798747861700493c684309d11",
-			"size": 61116,
-			"updated": "2026-11-11"
+			"download": "SmartphoneMode-1.5.1.zip",
+			"sha256": "56f04cd500f1b3f55b22c275e0d05d1c56a3d843fc17f3b7222d2dc1f2688224",
+			"size": 61354,
+			"updated": "2026-11-14"
 		}
 	]
 }
