@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-11 21:02:42",
+	"generated": "2026-11-14 00:02:58",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -34,9 +34,9 @@
 				}
 			],
 			"download": "Award-2.0.2.zip",
-			"sha256": "c7f7fcd43e6255f4614ca6a8210513f9f0bd34014ca65e149a7049317c3c2bc8",
-			"size": 5478107,
-			"updated": "2026-11-09"
+			"sha256": "40e1b8f2b664aa57b9990408fd1eb2af6498913f3e5f4b4c7a70ca03f36ba30e",
+			"size": 5482682,
+			"updated": "2026-11-14"
 		},
 		{
 			"id": "BackgroundColor",
