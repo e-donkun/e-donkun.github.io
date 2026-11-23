@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-14 07:52:36",
+	"generated": "2026-11-23 09:43:52",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -275,10 +275,15 @@
 			"id": "LiveScoreboard",
 			"name": "ライブ得点集計",
 			"description": "セッションごとの得点をライブで集計して表示する。",
-			"version": "1.11.4",
+			"version": "1.12.0",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#LiveScoreboard",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.12.0",
+					"date": "2026-11-23",
+					"notes": "サイネージ：選手名（全角 7 文字）・所属（全角 8 文字）の列幅を全部門でそろえ、入りきらない文字は縦長にして収める（縮めすぎになるときは文字も小さくする）。余った横幅はエンドの列に均等に回す。iPad で軽く動くよう、パネルのぼかしをやめ、iPad ではスクロール位置を画素にそろえないようにし、lite=1 の軽量表示を追加。パネルに「全画面」ボタンを追加（iPad の Safari にも対応）し、ホーム画面に追加したときアドレスバーなしで開くようにした"
+				},
 				{
 					"version": "1.11.4",
 					"date": "2026-11-13",
@@ -400,10 +405,10 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "LiveScoreboard-1.11.4.zip",
-			"sha256": "a6fefe25a86c6706e2bae6a173b455fb65bc0c7913ae02809329975d47c88c49",
-			"size": 517616,
-			"updated": "2026-11-14"
+			"download": "LiveScoreboard-1.12.0.zip",
+			"sha256": "9badfb61ce3f8af3df800cade481f3b0d21cf98b60edabef28232893ad5114a2",
+			"size": 520113,
+			"updated": "2026-11-23"
 		},
 		{
 			"id": "ModuleManager",
