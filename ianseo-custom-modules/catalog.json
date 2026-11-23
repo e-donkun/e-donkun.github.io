@@ -1,17 +1,22 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-23 09:43:52",
+	"generated": "2026-11-23 11:32:21",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
 			"id": "Award",
 			"name": "賞状PDF出力",
 			"description": "賞状の用紙・縦書き/横書き・文字の配置・公印をテンプレートとして保存し、予選の順位（部門・クラスごと）や手入力から賞状の PDF を出力する。発行履歴を残し、あとから再印刷できる。",
-			"version": "2.0.3",
+			"version": "2.1.0",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#Award",
 			"testedIanseo": "2026-10-26 rev 16",
 			"requiresPhp": "7.4",
 			"changelog": [
+				{
+					"version": "2.1.0",
+					"date": "2026-11-23",
+					"notes": "賞状発行の画面で、予選のセッションで一覧を絞れるようにした（団体戦はメンバーの誰かがそのセッションにいるチーム）。参加数・表彰数・順位は絞る前のまま"
+				},
 				{
 					"version": "2.0.3",
 					"date": "2026-11-13",
@@ -38,10 +43,10 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "Award-2.0.3.zip",
-			"sha256": "88ec21b8be770529f932c39cef76d8e50abdc0a70426a1f317c54c75015e7591",
-			"size": 5119444,
-			"updated": "2026-11-14"
+			"download": "Award-2.1.0.zip",
+			"sha256": "979fa416ff19219f16aa4e775686eea668806e3c559868b0ae065d6b06348c7b",
+			"size": 5120301,
+			"updated": "2026-11-23"
 		},
 		{
 			"id": "BackgroundColor",
