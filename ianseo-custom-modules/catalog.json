@@ -1,6 +1,6 @@
 {
 	"title": "ianseo カスタムモジュール",
-	"generated": "2026-11-23 14:41:27",
+	"generated": "2026-11-23 14:43:18",
 	"generator": "kyoto-ianseo / build_module_site.py",
 	"modules": [
 		{
@@ -280,10 +280,15 @@
 			"id": "LiveScoreboard",
 			"name": "ライブ得点集計",
 			"description": "セッションごとの得点をライブで集計して表示する。",
-			"version": "1.12.2",
+			"version": "1.12.3",
 			"homepage": "https://e-donkun.github.io/ianseo-custom-modules/#LiveScoreboard",
 			"testedIanseo": "2026-10-26 rev 16",
 			"changelog": [
+				{
+					"version": "1.12.3",
+					"date": "2026-11-23",
+					"notes": "サイネージ：部門名を 3 文字分右にずらし、iPad の Safari の全画面表示で左上に出る×ボタンと重ならないようにした"
+				},
 				{
 					"version": "1.12.2",
 					"date": "2026-11-23",
@@ -420,9 +425,9 @@
 					"notes": "パッケージ情報を追加"
 				}
 			],
-			"download": "LiveScoreboard-1.12.2.zip",
-			"sha256": "58685d1ba001d8dd50ac0eda8b21b0933bf32d1b502f055dfe18221bf13a4523",
-			"size": 518325,
+			"download": "LiveScoreboard-1.12.3.zip",
+			"sha256": "a852926ba1152bb9bbc598ce2a3d51878add62115e62c67094d7ee713a472936",
+			"size": 518461,
 			"updated": "2026-11-23"
 		},
 		{
